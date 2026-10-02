@@ -1,0 +1,26 @@
+{
+  "name": "jokbo",
+  "version": "1.0.0",
+  "engines": {
+    "python": ">=3.11"
+  },
+  "records": [
+    ".jokbo/"
+  ],
+  "description": "The reader of the LLM-development era.",
+  "author": {
+    "name": "guineeeeeeeeeeeeeeeeeeeeeeeerm"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "jokbo",
+    "shortDescription": "The reader of the LLM-development era.",
+    "longDescription": "The reader of the LLM-development era. Records are written faster than anyone reads them, and the next agent has no memory; what fails is not finding but knowing what to read, when, and how far to trust it. jokbo answers with where to read — the net if there is one, else the documents; the runs if there are any, else git — at the moment the question arises, and says how current each source is. It never decides and never becomes a source.",
+    "developerName": "guineeeeeeeeeeeeeeeeeeeeeeeerm",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": "Use jokbo on this project."
+  }
+}
