@@ -59,7 +59,9 @@ edited".
 ### `/jokbo:file`
 
 Before editing a file: the document sections that speak of it with how current each is, the commits that last changed
-it, and what the declared `file` reads say of it
+it, and what the declared `file` reads say of it. For a document: the *other* documents that say the same things, and
+the files it names with when each last changed ("after this document" when one changed since) — its own sections are
+open already. A picture or other binary is matched by its name
 
 ### `/jokbo:since`
 
@@ -71,16 +73,25 @@ uncommitted work, and the declared `since` reads. `--mark` records HEAD as looke
 Where the project speaks of something: document sections, the code's own words, commit subjects, and the lines of the
 declared `decision` reads that share the words
 
-`index [--rebuild]` builds the cache and says what it holds; every command rebuilds it when the tree moved.
+`index [--rebuild]` builds the cache and says what it holds; every command refreshes it when the tree moved, and only
+for the files that changed (a document is blamed again only when it, or the last commit that touched it, changed).
 
 ## Hooks
 
 - **SessionStart**: what changed since this machine last looked — commits and document sections, in brief; nothing new,
   nothing said. Never a product's state (each product says its own) and never an instruction.
-- **PreToolUse on Edit/Write**: before the first edit of a file in a session, `file` in brief (a declared read's output
-  cut at 12 lines, with the command that prints it whole). Context only: no permission decision, never blocks.
+- **PreToolUse on Edit/Write and on Bash**: before the first edit of a file in a session, whichever tool makes it, `file`
+  in brief (a declared read's output cut at 12 lines, with the command that prints it whole). A shell command is read
+  for the project files it is about to write — redirect targets; the operands of mv, cp, rm, touch, tee, `git mv/rm`,
+  `sed -i`, `perl -pi` (a directory stands for its files); the files an inline script that writes names — two told in
+  full per call, the rest named. A command that writes nothing is passed over before anything is built. Context only:
+  no permission decision, never blocks.
 
-Both are silent in a worker session (`AGENT_WORKER=1`), outside a git work tree, and for record paths.
+All are silent in a worker session (`AGENT_WORKER=1`), outside a git work tree, and for record paths. Under hunsu's
+probe (`HUNSU_SURVEY=1`) the session-start hook answers its standing text and writes nothing.
+
+Measured on a guin-site cycle that edited only through Bash (102 calls, no Edit): the 46 files it changed were all
+found from its commands, 7 more were named. On Claude Code 2.1.287 the context reaches the model after a Bash edit.
 
 ## Settings
 

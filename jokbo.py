@@ -30,7 +30,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 2
+INDEX_FORMAT = 3
 PY = "python3" if shutil.which("python3") else "python"
 DOC_EXT = (".md", ".markdown")
 CODE_EXT = (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".astro", ".vue", ".svelte", ".css", ".scss", ".html", ".sql",
@@ -60,7 +60,7 @@ def load(path, default=None):
 
 def save(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = "%s.%d.tmp" % (path, os.getpid())   # hooks of parallel tool calls write at once: each its own temp, then one rename
     with io.open(tmp, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(data, fh, ensure_ascii=False)
     os.replace(tmp, path)
@@ -68,7 +68,7 @@ def save(path, data):
 
 def git(target, *a):
     try:
-        done = subprocess.run(["git", *a], cwd=target, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        done = subprocess.run(["git", "-c", "core.quotepath=false", *a], cwd=target, capture_output=True, text=True, encoding="utf-8", errors="replace")
     except OSError:
         return None
     return done.stdout if done.returncode == 0 else None
@@ -211,8 +211,7 @@ def run_read(target, plugin, argv, values, timeout=20):
     if out and out[0] in ("python3", "python"):
         out[0] = PY
     try:
-        done = subprocess.run(out, cwd=target, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
-                              env=dict(os.environ, AGENT_WORKER=os.environ.get("AGENT_WORKER", "")))
+        done = subprocess.run(out, cwd=target, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as err:
         return None, "%s did not answer (%s)" % (plugin, type(err).__name__)
     text = (done.stdout or "").rstrip()
@@ -230,11 +229,11 @@ def overlay(target, kind, values):
 
 def listed_files(target):
     """Tracked and untracked-but-not-ignored files, relative to target, records set aside."""
-    out = git(target, "ls-files", "--cached", "--others", "--exclude-standard", "--", ".")
+    out = git(target, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ".")
     if out is None:
         return None
     rp = record_paths(target) + tuple(p for p in settings(target).get("skip") or [] if isinstance(p, str) and p)
-    return sorted({l.strip() for l in out.splitlines() if l.strip() and not l.strip().startswith(rp) and os.path.isfile(os.path.join(target, l.strip()))})
+    return sorted({l for l in out.split("\0") if l and not l.startswith(rp) and os.path.isfile(os.path.join(target, l))})
 
 
 def read_text(target, path, limit=400000):
@@ -259,10 +258,10 @@ def sections_of(path, text):
             if cur:
                 cur["end"] = i - 1
                 out.append(cur)
-            cur = {"file": path, "heading": h.group(2).strip(), "level": len(h.group(1)), "start": i, "lines": [line]}
+            cur = {"file": path, "heading": h.group(2).strip(), "start": i, "lines": [line]}
         else:
             if cur is None:
-                cur = {"file": path, "heading": "", "level": 0, "start": 1, "lines": []}
+                cur = {"file": path, "heading": "", "start": 1, "lines": []}
             cur["lines"].append(line)
     if cur:
         cur["end"] = len(lines)
@@ -332,48 +331,92 @@ def tree_key(target):
     return hashlib.sha1(("%s\n%s\n%s\n%d" % (version(), head, status, INDEX_FORMAT)).encode("utf-8")).hexdigest()
 
 
-def build_index(target):
+def dirty_paths(target):
+    out = git(target, "status", "--porcelain", "-z", "--untracked-files=all", "--", ".") or ""
+    paths, parts, i = set(), out.split("\0"), 0
+    while i < len(parts):
+        entry = parts[i]
+        i += 1
+        if len(entry) >= 4:
+            paths.add(entry[3:])
+            if entry[0] in "RC" or entry[1] in "RC":
+                if i < len(parts) and parts[i]:
+                    paths.add(parts[i])
+                i += 1
+    return paths
+
+
+def content_key(target, path, last_commit, dirty):
+    """What a file's entry depends on: its words (content) and, for blame, the last commit that changed it — HEAD moving
+    past it changes neither, so a commit elsewhere rebuilds nothing here."""
+    try:
+        with io.open(os.path.join(target, path), "rb") as fh:
+            h = hashlib.sha1(fh.read()).hexdigest()
+    except OSError:
+        h = "gone"
+    return "%s %s %s" % (h, last_commit or "-", "dirty" if dirty else "clean")
+
+
+def build_index(target, previous=None):
+    """The cache: sections of every document (with each one's last change, by blame), the code's own words, recent
+    commits. A file whose key is unchanged keeps its previous entry — blame runs only for documents that changed, so an
+    edit to one file costs one file's work, not the project's."""
     files = listed_files(target)
     if files is None:
         raise SystemExit("jokbo: %s is not a git work tree — the base layer is its documents, code and history" % target)
-    sections, said = [], []
-    for f in files:
-        if f.lower().endswith(DOC_EXT):
-            text = read_text(target, f)
-            times = blame_times(target, f)
-            last = max(times) if times else 0
-            dirty_doc = bool((git(target, "status", "--porcelain", "--", f) or "").strip())
-            for s in sections_of(f, text):
-                lt = [times.get(i) for i in range(s["start"], min(s["end"], last) + 1)]
-                s["changed"] = None if dirty_doc and any(t is None for t in lt) else max([t for t in lt if t] or [0]) or None
-                s["words"] = words(s["heading"] + " " + s["text"])
-                sections.append(s)
-        elif f.endswith(CODE_EXT):
-            for w in code_words(f, read_text(target, f)):
-                w["words"] = words(w["text"])
-                said.append(w)
+    commits = recent_commits(target)
+    last = {}
+    for c in commits:
+        for f in c["files"]:
+            last.setdefault(f, c["sha"])
+    dirty = dirty_paths(target)
+    old = (previous or {}).get("entries") or {}
+    fileset = sorted(files)
+    names_key = hashlib.sha1("\n".join(fileset).encode("utf-8", "surrogateescape")).hexdigest()
     base = collections.Counter(os.path.basename(f) for f in files)
-    for s in sections:
-        # the files it names outright — by path, or by a file name only one file has
-        s["names"] = sorted(f for f in files if f in s["text"] or (base[os.path.basename(f)] == 1 and len(os.path.basename(f)) > 4
-                                                                   and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(f)) + r"(?![\w-])", s["text"])))
-        del s["text"]   # read from the file when shown: the cache keeps positions, the document keeps its words
+    entries = {}
+    for f in files:
+        is_doc, is_code = f.lower().endswith(DOC_EXT), f.endswith(CODE_EXT)
+        if not (is_doc or is_code):
+            continue
+        key = content_key(target, f, last.get(f), f in dirty) + (" " + names_key if is_doc else "")
+        if old.get(f, {}).get("key") == key:
+            entries[f] = old[f]
+            continue
+        text = read_text(target, f)
+        if is_doc:
+            times = blame_times(target, f) if f not in dirty or last.get(f) else {}
+            end = max(times) if times else 0
+            secs = []
+            for sec in sections_of(f, text):
+                lt = [times.get(i) for i in range(sec["start"], min(sec["end"], end) + 1)]
+                sec["changed"] = None if f in dirty and any(t is None for t in lt) else max([t for t in lt if t] or [0]) or None
+                sec["words"] = words(sec["heading"] + " " + sec["text"])
+                # the files it names outright — by path, or by a file name only one file has
+                sec["names"] = sorted(g for g in files if g != f and (g in sec["text"] or (base[os.path.basename(g)] == 1 and len(os.path.basename(g)) > 4
+                                      and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(g)) + r"(?![\w-])", sec["text"]))))
+                del sec["text"]   # read from the file when shown: the cache keeps positions, the document keeps its words
+                secs.append(sec)
+            entries[f] = {"key": key, "sections": secs}
+        else:
+            said = code_words(f, text)
+            for w in said:
+                w["words"] = words(w["text"])
+            entries[f] = {"key": key, "said": said}
     return {"format": INDEX_FORMAT, "key": tree_key(target), "built": int(time.time()), "by": "jokbo %s" % version(),
-            "files": files, "sections": sections, "said": said, "commits": recent_commits(target)}
+            "files": files, "entries": entries, "commits": commits}
 
 
 def index(target, rebuild=False):
     path = os.path.join(cache_dir(target), "index.json")
     idx = load(path)
     if rebuild or idx.get("format") != INDEX_FORMAT or idx.get("key") != tree_key(target):
-        idx = build_index(target)
+        idx = build_index(target, None if rebuild or idx.get("format") != INDEX_FORMAT else idx)
         save(path, idx)
+    entries = idx["entries"]   # the flat views every query ranks over, derived on load, never stored twice
+    idx["sections"] = [x for f in sorted(entries) for x in entries[f].get("sections", [])]
+    idx["said"] = [x for f in sorted(entries) for x in entries[f].get("said", [])]
     return idx
-
-
-def section_text(target, s):
-    lines = read_text(target, s["file"]).split("\n")
-    return "\n".join(lines[s["start"] - 1:s["end"]])
 
 
 def when(t):
@@ -407,6 +450,8 @@ def freshness(s, changed):
 
 def rank_sections(idx, query, about=None, top=SHOW):
     secs = idx["sections"]
+    if about and about.lower().endswith(DOC_EXT):
+        secs = [s for s in secs if s["file"] != about]   # its own sections are what is being edited: the reader has them open
     if not secs or not query:
         return []
     r = Ranker([s["words"] for s in secs])
@@ -437,6 +482,73 @@ def rank_items(items, query, top):
     return [items[i] for sc, i in scored[:top] if sc > 0]
 
 
+# ---------------------------------------------------------------- what a shell command is about to write
+
+SCRIPT_WRITE = re.compile(r"open\([^)]*['\"][wa]b?['\"]|write_text|writeFileSync|writeFile\(|\.write\(|json\.dump\(|shutil\.(?:move|copy)|os\.(?:rename|replace|remove)")
+SHELL_WRITE = re.compile(r"(?<![0-9&<])>>?|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-p?i|\btee\b|\bgit\s+(?:mv|rm)\b|(?:^|[\s;&|(])(?:mv|cp|rm|touch)\s")
+
+
+def bash_targets(target, command, files):
+    """The project files a shell command is about to write — an edit is an edit whichever tool makes it (guin-site, 10-02:
+    102 Bash calls, no Edit, and the edit hook never fired). Redirect targets; the operands of mv, cp, rm, touch, tee,
+    `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for the files under it); and, in an inline script that writes,
+    every project file it names. Measured on that cycle: the 46 files it changed all found, 7 more named."""
+    import shlex
+    if not (SHELL_WRITE.search(command) or SCRIPT_WRITE.search(command)):
+        return []
+    fileset = set(files)
+    base = collections.Counter(os.path.basename(f) for f in files)
+    root = os.path.abspath(target) + os.sep
+
+    def as_files(tok):
+        tok = tok.strip("'\"").rstrip("/")
+        if tok.startswith(root):
+            tok = tok[len(root):]
+        tok = tok[2:] if tok.startswith("./") else tok
+        if tok in fileset:
+            return {tok}
+        if not tok or tok.startswith(("-", "/", "$", "~")):
+            return set()
+        return {f for f in files if f.startswith(tok + "/")}
+
+    def named(text):
+        out = {f for f in files if f in text}
+        out |= {f for f in files if base[os.path.basename(f)] == 1 and len(os.path.basename(f)) > 4
+                and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(f)) + r"(?![\w-])", text)}
+        return out
+
+    out = set()
+    for m in re.finditer(r"\b(?:python3?|node|ruby|perl)\s+(?:-c\s|-e\s|-\s*<<|<<)", command):
+        if SCRIPT_WRITE.search(command[m.start():]):
+            out |= named(command[m.start():])
+    body = re.sub(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\b", "", command, flags=re.S)   # heredoc bodies are data, not commands
+    for part in re.split(r"&&|\|\||;|\||\n", body):
+        for m in re.finditer(r"(?<![0-9&<])>>?\s*([^\s;&|<>]+)", part):
+            out |= as_files(m.group(1))
+        try:
+            w = shlex.split(part)
+        except ValueError:
+            w = part.split()
+        while w and re.match(r"^\w+=", w[0]):
+            w = w[1:]
+        if not w:
+            continue
+        if w[0] == "git" and len(w) > 1 and w[1] in ("mv", "rm"):
+            args = w[2:]
+        elif w[0] in ("mv", "cp", "rm", "touch", "tee"):
+            args = w[1:]
+        elif w[0] == "sed" and any(a.startswith("-i") for a in w):
+            args = w[1:]
+        elif w[0] == "perl" and any(re.match(r"-p?i", a) for a in w):
+            args = w[1:]
+        else:
+            continue
+        for a in args:
+            if not a.startswith("-"):
+                out |= as_files(a)
+    return sorted(out)
+
+
 # ---------------------------------------------------------------- commands
 
 def relpath(target, path):
@@ -444,23 +556,55 @@ def relpath(target, path):
     return p.replace(os.sep, "/")
 
 
+def is_text(target, path):
+    if path.lower().endswith(DOC_EXT + CODE_EXT):
+        return True
+    try:
+        with io.open(os.path.join(target, path), "rb") as fh:
+            return b"\0" not in fh.read(8192)
+    except OSError:
+        return False
+
+
 def file_report(target, path, brief=False):
-    """The lines for one file. brief: what the edit hook injects (overlay output cut, with the command that prints it whole)."""
+    """The lines for one file. brief: what the edit hook injects (overlay output cut, with the command that prints it whole).
+    A document being edited is told the other documents that say the same things, and the files it names with when each
+    last changed — documents disagreeing with each other or with the code are what the verifier rejected (guin-site, 10-02);
+    its own sections are open in front of the reader already."""
     idx = index(target)
     path = relpath(target, path)
     lines = []
     exists = os.path.isfile(os.path.join(target, path))
+    doc = path.lower().endswith(DOC_EXT)
     changed = file_changed(target, path) if exists else None
-    query = words(read_text(target, path) + " " + path) if exists else words(path)
+    if exists and is_text(target, path):
+        query = words(read_text(target, path) + " " + path)
+    else:
+        query = words(path)   # a picture's bytes are not words: its name is all that can be matched
     secs = rank_sections(idx, query, about=path)
     head = "jokbo — %s" % path + ("" if exists else " (not in the tree: ranked by its name only)")
     lines.append(head)
     if secs:
-        lines.append("documents that speak of it (ranked by shared words — nobody confirmed these; open the ones that matter):")
+        lines.append(("other documents that say the same things" if doc else "documents that speak of it")
+                     + " (ranked by shared words — nobody confirmed these; open the ones that matter):")
         for s in secs:
-            lines.append("  %s  (lines %d-%d) — %s" % (s["id"], s["start"], s["end"], freshness(s, changed)))
+            fresh = ("written %s" % stamp(s["changed"]) if s.get("changed") else "being edited (uncommitted)") if doc else freshness(s, changed)
+            lines.append("  %s  (lines %d-%d) — %s" % (s["id"], s["start"], s["end"], fresh))
     else:
-        lines.append("documents: no section shares its words")
+        lines.append("documents: no %ssection shares its words" % ("other " if doc else ""))
+    if doc:
+        named = sorted({g for s in (idx.get("entries", {}).get(path) or {}).get("sections", []) for g in s.get("names", [])})
+        if named:
+            mine = changed if isinstance(changed, int) else None
+            lines.append("files it names (%d):" % len(named))
+            for g in named[:8 if brief else len(named)]:
+                gc = file_changed(target, g) if os.path.exists(os.path.join(target, g)) else None
+                note = "gone from the tree" if gc is None else ("uncommitted changes" if gc == "uncommitted" else "changed %s" % stamp(gc))
+                if mine and isinstance(gc, int) and gc > mine:
+                    note += ", after this document — read it against them"
+                lines.append("  %s — %s" % (g, note))
+            if brief and len(named) > 8:
+                lines.append("  … %d more" % (len(named) - 8))
     hist = [c for c in idx["commits"] if path in c["files"]][:2 if brief else 5]
     if hist:
         lines.append("last changed by:")
@@ -470,6 +614,8 @@ def file_report(target, path, brief=False):
         if why:
             lines.append("%s (declared `file` read): not read — %s" % (plugin, why))
             continue
+        if not text.strip():
+            continue   # it has nothing on this file: nothing to say
         body = text.split("\n")
         if brief and len(body) > 12:
             body = body[:12] + ["  … %d more line(s) — `%s \"%s\" file %s` prints them all" % (len(body) - 12, PY, os.path.join(HERE, "jokbo.py").replace(os.sep, "/"), path)]
@@ -520,8 +666,10 @@ def since_report(target, rev=None, brief=False):
         lines.append("uncommitted here: %d file(s)" % len(dirty))
     if not brief:
         for plugin, text, why in overlay(target, "since", {"since": rev}):
-            lines.append("%s (declared `since` read):" % plugin if not why else "%s (declared `since` read): not read — %s" % (plugin, why))
-            if text:
+            if why:
+                lines.append("%s (declared `since` read): not read — %s" % (plugin, why))
+            elif text.strip():
+                lines.append("%s (declared `since` read):" % plugin)
                 lines.extend("  " + l for l in text.split("\n"))
     return lines
 

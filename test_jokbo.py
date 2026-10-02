@@ -161,6 +161,9 @@ def test_a_declared_read_is_run_and_labelled_and_a_missing_plugin_is_said():
             assert "netty (declared `decision` read)" in out and "concept:feed — the front page" in out, out
             out = run("index", "--target", r.dir)[1]
             assert "declared reads: gone(file), netty(decision,file)" in out, out
+            write(os.path.join(plug, "echo.py"), "import sys\n")   # a read with nothing on this file
+            out = run("file", "src/feed.ts", "--target", r.dir)[1]
+            assert "netty" not in out, "nothing to say: no empty heading"
         finally:
             shutil.rmtree(plug, ignore_errors=True)
 
@@ -210,6 +213,91 @@ def test_not_a_git_tree_is_said_not_guessed():
         assert hook("session_start.py", {"cwd": d}) == (0, "")
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+
+def test_a_shell_command_that_writes_is_an_edit_too():
+    """guin-site, 10-02: 102 Bash calls and no Edit — the edit hook never fired. A shell command is read for the project
+    files it is about to write: redirects, mv/cp/rm/tee/`git mv`/`sed -i` operands, and the files an inline script that
+    writes names. Reads and writes outside the project say nothing; a moved directory tells two files and names the rest."""
+    with Repo() as r:
+        files = jokbo.index(r.dir)["files"]
+        bt = lambda c: jokbo.bash_targets(r.dir, c, files)
+        assert bt("cat src/feed.ts > /tmp/x") == [] and bt("grep -rn feed src | head") == [] and bt("npm run build > /dev/null 2>&1") == []
+        assert bt("sed -i '' 's/10/20/' src/feed.ts") == ["src/feed.ts"]
+        assert bt("python3 - <<'E'\nopen('plan/PLAN.md', 'w').write('x')\nE") == ["plan/PLAN.md"]
+        assert bt("echo x >> README.md && git add -A") == ["README.md"]
+        assert bt("git mv src lib") == ["src/feed.ts", "src/tags.ts"]
+        payload = {"cwd": r.dir, "session_id": "b1", "tool_name": "Bash", "tool_input": {"command": "sed -i '' 's/10/20/' src/feed.ts"}}
+        ctx = json.loads(hook("pre_write.py", payload)[1])["hookSpecificOutput"]["additionalContext"]
+        assert "jokbo — src/feed.ts" in ctx and "Q-feed" in ctx, ctx
+        assert hook("pre_write.py", dict(payload, tool_input={"command": "ls src"})) == (0, ""), "writes nothing: silent"
+        for n in range(3):
+            write(r.p("docs/n%d.md" % n), "# note %d\n\nabout feed\n" % n)
+        ctx = json.loads(hook("pre_write.py", dict(payload, session_id="b2", tool_input={"command": "git mv docs notes"}))[1])["hookSpecificOutput"]["additionalContext"]
+        assert ctx.count("jokbo — docs/") == 2 and "this also writes 1 more file(s): docs/n2.md" in ctx, ctx
+
+
+def test_under_hunsus_probe_the_hooks_say_their_standing_text_and_write_nothing():
+    """hunsu runs a SessionStart hook to judge what it says (HUNSU_SURVEY=1). In guin-site that run marked the machine as
+    having looked before any session had. Under the probe: the standing text, and nothing written."""
+    with Repo() as r:
+        code, out = hook("session_start.py", {"cwd": r.dir}, HUNSU_SURVEY="1")
+        assert "what changed since this machine last looked" in json.loads(out)["hookSpecificOutput"]["additionalContext"], out
+        assert not os.path.exists(r.p(".jokbo")), "the probe wrote nothing"
+        payload = {"cwd": r.dir, "session_id": "p1", "tool_name": "Edit", "tool_input": {"file_path": r.p("src/feed.ts")}}
+        assert hook("pre_write.py", payload, HUNSU_SURVEY="1") == (0, "")
+        assert "first look" in json.loads(hook("session_start.py", {"cwd": r.dir})[1])["hookSpecificOutput"]["additionalContext"]
+
+
+def test_a_korean_document_name_is_read_as_itself():
+    with Repo() as r:
+        write(r.p("plan/계획.md"), "# 관리 화면\n\n초안 게시 관리 화면 feed posts written\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "계획")
+        idx = jokbo.index(r.dir)
+        assert any(s["id"] == "plan/계획.md#관리 화면" for s in idx["sections"]), [s["id"] for s in idx["sections"]]
+        assert any("plan/계획.md" in c["files"] for c in idx["commits"])
+
+
+def test_a_document_being_edited_is_told_the_other_documents_and_the_files_it_names():
+    """Editing README: its own sections are open already; what it needs is where else the same things are said, and the
+    files it names with when each changed — guin-site's rejects on 10-02 were documents disagreeing with each other and
+    with the code. The README names src/feed.ts, which changed after the README was written."""
+    with Repo() as r:
+        write(r.p("README.md"), "# Site\n\nThe front page lists every post newest first by written time: see `src/feed.ts`.\n")
+        r.git("commit", "-qam", "readme", env_date="2026-09-01T12:00:00Z")
+        write(r.p("src/feed.ts"), r.read("src/feed.ts") + "export const MORE = 1;\n")
+        r.git("commit", "-qam", "feed: more", env_date="2026-09-03T00:00:00Z")
+        out = run("file", "README.md", "--target", r.dir)[1]
+        assert "other documents that say the same things" in out and "plan/PLAN.md#Q-feed" in out, out
+        assert "  README.md#" not in out, "its own sections are not offered back"
+        assert "files it names (1):" in out and "src/feed.ts — changed 2026-09-03 00:00Z, after this document" in out, out
+
+
+def test_a_picture_is_matched_by_its_name_not_its_bytes():
+    with Repo() as r:
+        os.makedirs(r.p("assets"))
+        with io.open(r.p("assets/front-page.png"), "wb") as fh:
+            fh.write(b"\x89PNG\r\n\x1a\n\x00\x00feedPosts written tagRows" * 50)
+        assert not jokbo.is_text(r.dir, "assets/front-page.png")
+        out = run("file", "assets/front-page.png", "--target", r.dir)[1]
+        assert "Q-feed" in out, "the name 'front page' is what it is matched by"
+
+
+def test_a_change_to_one_file_reblames_only_that_document():
+    with Repo() as r:
+        jokbo.index(r.dir)
+        calls = []
+        real = jokbo.blame_times
+        jokbo.blame_times = lambda t, p: calls.append(p) or real(t, p)
+        try:
+            write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// more\n")
+            jokbo.index(r.dir)
+            assert calls == [], calls
+            write(r.p("README.md"), r.read("README.md") + "\nMore.\n")
+            jokbo.index(r.dir)
+            assert calls == ["README.md"], calls
+        finally:
+            jokbo.blame_times = real
 
 
 if __name__ == "__main__":

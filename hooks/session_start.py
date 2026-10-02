@@ -1,6 +1,8 @@
 """SessionStart hook — what changed since this machine last looked, as facts: commits and document sections. Never a
 product's state (each product says its own at session start); never an instruction. Nothing new: silent. A worker session
-(AGENT_WORKER=1): silent — what it may read is its hirer's to say. Writes only the cache (`.jokbo/`, ignored)."""
+(AGENT_WORKER=1): silent — what it may read is its hirer's to say. Under hunsu's probe (HUNSU_SURVEY=1) it answers its
+standing text and writes nothing: the probe ran it in guin-site and marked the machine as having looked, before any
+session had. Otherwise writes only the cache (`.jokbo/`, ignored)."""
 import json
 import os
 import sys
@@ -9,6 +11,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import jokbo  # noqa: E402
 
+STANDING = ("jokbo: what changed since this machine last looked — commits and the document sections they changed, in brief; "
+            "nothing when nothing changed. Before the first edit of each file, the edit hook names the documents that speak of it "
+            "and how current each is. `jokbo.py file PATH`, `find WORDS`, `since [REV]` by hand.")
+
 
 def main():
     try:
@@ -16,6 +22,9 @@ def main():
     except ValueError:
         return 0
     if os.environ.get("AGENT_WORKER"):
+        return 0
+    if os.environ.get("HUNSU_SURVEY"):
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": STANDING}}))
         return 0
     target = os.path.abspath(payload.get("cwd") or os.getcwd())
     if jokbo.git(target, "rev-parse", "--is-inside-work-tree") is None:
