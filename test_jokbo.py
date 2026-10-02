@@ -300,6 +300,83 @@ def test_a_change_to_one_file_reblames_only_that_document():
             jokbo.blame_times = real
 
 
+def test_the_first_look_at_a_file_is_when_it_is_told_and_its_edit_is_not_told_again():
+    """Context added to an edit arrives with the edit's result; context added to a read arrives before the next call. The
+    read hook tells a file when the session first looks at it (Read, or cat/sed/grep in a shell); its edit then says
+    nothing more."""
+    with Repo() as r:
+        read = {"cwd": r.dir, "session_id": "r1", "tool_name": "Bash", "tool_input": {"command": "sed -n '1,5p' src/feed.ts"}}
+        doc = json.loads(hook("post_read.py", read)[1])["hookSpecificOutput"]
+        assert doc["hookEventName"] == "PostToolUse" and "jokbo — src/feed.ts" in doc["additionalContext"] and "Q-feed" in doc["additionalContext"], doc
+        edit = {"cwd": r.dir, "session_id": "r1", "tool_name": "Edit", "tool_input": {"file_path": r.p("src/feed.ts")}}
+        assert hook("pre_write.py", edit) == (0, ""), "told at the read: not again at the edit"
+        assert "Q-tags" in json.loads(hook("post_read.py", dict(read, tool_input={"file_path": r.p("src/tags.ts")}, tool_name="Read"))[1])["hookSpecificOutput"]["additionalContext"]
+        assert hook("post_read.py", dict(read, tool_input={"command": "ls src && git status"})) == (0, ""), "no file shown: silent"
+        assert hook("post_read.py", dict(read, session_id="r2", tool_input={"command": "grep -rn feed src"})) == (0, ""), "a directory search is not a look at one file"
+
+
+def test_the_shell_directory_is_followed_and_the_project_root_kept():
+    """A hook's cwd is the shell's: in tests/ a command naming `test_bots.py` once became a file of its own and a second
+    cache appeared in tests/. Paths are read against the shell's directory (and its `cd`s); the cache is the project's."""
+    with Repo() as r:
+        files = jokbo.index(r.dir)["files"]
+        root = jokbo.project_root(r.p("src"))
+        assert root == os.path.realpath(r.dir)
+        assert jokbo.shell_files(root, r.p("src"), "sed -i '' 's/a/b/' feed.ts", files)[0] == ["src/feed.ts"]
+        assert jokbo.shell_files(root, r.dir, "cd src && cat tags.ts > /tmp/x", files) == ([], ["src/tags.ts"])
+        payload = {"cwd": r.p("src"), "session_id": "c1", "tool_name": "Bash", "tool_input": {"command": "echo // x >> feed.ts"}}
+        assert "jokbo — src/feed.ts" in json.loads(hook("pre_write.py", payload)[1])["hookSpecificOutput"]["additionalContext"]
+        assert not os.path.exists(r.p("src/.jokbo")), "one cache, at the project's root"
+
+
+def test_what_a_shell_command_writes_is_read_closely():
+    with Repo() as r:
+        files = jokbo.index(r.dir)["files"]
+        w = lambda c: jokbo.shell_files(r.dir, r.dir, c, files)[0]
+        assert w("cp -r src /tmp/copy") == [], "a copy's sources are read, not written"
+        assert w("cp plan/PLAN.md README.md") == ["README.md"]
+        assert w("git add src && git commit -qm 'feed > tags: src/feed.ts'") == [], "a > inside quotes is not a redirect"
+        script = "python3 - <<'E'\nfrom pathlib import Path\nsrc = Path('plan/PLAN.md').read_text()\np = Path('README.md')\np.write_text(src)\nE"
+        assert w(script) == ["README.md"], "the file it reads is not written"
+        loop = "python3 - <<'E'\nfrom pathlib import Path\nfiles = {'src/feed.ts': 'a', 'src/tags.ts': 'b'}\nfor path, text in files.items():\n    Path(path).write_text(text)\nE"
+        assert w(loop) == ["src/feed.ts", "src/tags.ts"], "a dict of paths written in a loop"
+
+
+def test_a_new_file_and_a_file_nothing_speaks_of_say_nothing():
+    with Repo() as r:
+        write(r.p("src/new.ts"), "export const x = 1;\n")
+        payload = {"cwd": r.dir, "session_id": "n1", "tool_name": "Write", "tool_input": {"file_path": r.p("src/brand-new.ts")}}
+        assert hook("pre_write.py", payload) == (0, ""), "not in the tree yet: nothing to say"
+        write(r.p("zz/qq.bin"), "\x00\x01")
+        assert hook("post_read.py", dict(payload, tool_name="Read", tool_input={"file_path": r.p("zz/qq.bin")})) == (0, "")
+
+
+def test_a_declared_read_is_told_in_brief_within_a_size():
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            write(os.path.join(plug, "long.py"), "for i in range(40):\n    print('run-%d ' % i + 'x' * 500)\n")
+            write(r.p("hunsu.local.json"), {"links": {"big": plug}})
+            write(r.p("hunsu.lock.json"), {"reads": {"big": {"file": ["python3", "{plugin:big}/long.py", "{path}"]}}})
+            text = "\n".join(jokbo.file_report(r.dir, "src/feed.ts", brief=True))
+            part = text.split("big (declared `file` read):")[1]
+            assert len(part) < jokbo.BRIEF_CHARS + 600 and "prints all 40 line(s)" in part, len(part)
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_where_the_machine_last_looked_is_marked_when_an_answer_ends():
+    """A resumed session was told its own commits back. The session-start line counts from where the last answer ended."""
+    with Repo() as r:
+        hook("session_start.py", {"cwd": r.dir})
+        write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// mine\n"); r.git("commit", "-qam", "my own work")
+        assert hook("stop.py", {"cwd": r.dir}) == (0, "")
+        assert hook("session_start.py", {"cwd": r.dir}) == (0, ""), "the session's own commit is not news"
+        write(r.p("src/tags.ts"), r.read("src/tags.ts") + "// theirs\n"); r.git("commit", "-qam", "someone else's work")
+        ctx = json.loads(hook("session_start.py", {"cwd": r.dir})[1])["hookSpecificOutput"]["additionalContext"]
+        assert "someone else's work" in ctx and "my own work" not in ctx, ctx
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

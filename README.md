@@ -78,20 +78,30 @@ for the files that changed (a document is blamed again only when it, or the last
 
 ## Hooks
 
+- **PostToolUse on Read and on Bash — the first look at a file.** When the session first reads a file (Read, or `cat`,
+  `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `less`, `nl` on it in a shell — files, never a whole directory), `file` in
+  brief. This is the moment before an edit: an agent looks at a file before changing it, and context added to a read
+  arrives before its next call is decided.
+- **PreToolUse on Edit/Write and on Bash — a file written without being read.** The host delivers a PreToolUse context
+  with the tool's result, so it informs the next edit, not this one; it covers what the read hook did not. A shell command
+  is read for the files it writes — redirect targets (quotes honoured: a `>` in a commit message is no redirect); the
+  operands of mv, rm, touch, tee, `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for its files); a copy's
+  destination; what an inline script writes (the first argument of its writing calls, through the names they use).
+- Each file is told once per session, by whichever hook comes first; at most two in full per call, the rest named; a
+  new file, or one nothing speaks of, says nothing. A declared read is told in brief (ten lines, each cut, about 1.2 KB).
+  Paths are read against the shell's directory, which follows `cd`; the cache is the project's, at its root.
 - **SessionStart**: what changed since this machine last looked — commits and document sections, in brief; nothing new,
   nothing said. Never a product's state (each product says its own) and never an instruction.
-- **PreToolUse on Edit/Write and on Bash**: before the first edit of a file in a session, whichever tool makes it, `file`
-  in brief (a declared read's output cut at 12 lines, with the command that prints it whole). A shell command is read
-  for the project files it is about to write — redirect targets; the operands of mv, cp, rm, touch, tee, `git mv/rm`,
-  `sed -i`, `perl -pi` (a directory stands for its files); the files an inline script that writes names — two told in
-  full per call, the rest named. A command that writes nothing is passed over before anything is built. Context only:
-  no permission decision, never blocks.
+- **Stop**: marks where this machine last looked, when an answer ends — so a resumed session is not told its own commits.
 
-All are silent in a worker session (`AGENT_WORKER=1`), outside a git work tree, and for record paths. Under hunsu's
-probe (`HUNSU_SURVEY=1`) the session-start hook answers its standing text and writes nothing.
+All are silent in a worker session (`AGENT_WORKER=1`), outside a git work tree, and for record paths. Under hunsu's probe
+(`HUNSU_SURVEY=1`) the session-start hook answers its standing text and the others say and write nothing. Context only:
+never a permission decision, never a block.
 
-Measured on a guin-site cycle that edited only through Bash (102 calls, no Edit): the 46 files it changed were all
-found from its commands, 7 more were named. On Claude Code 2.1.287 the context reaches the model after a Bash edit.
+Measured on guin-site's two cycles of 10-02 (the session edited only through Bash): of the files each cycle changed, the
+write reading found 45/46 and 26/30 (the four missed include two a hired worker wrote), naming 0 and 1 file that was not
+changed; 16 of the second cycle's 30 changed files were read before their first edit — told before it. On Claude Code
+2.1.287 the context reaches the model after a read and after a Bash edit.
 
 ## Settings
 

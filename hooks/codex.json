@@ -25,6 +25,31 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Bash|shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/post_read.py\"",
+            "timeout": 15,
+            "statusMessage": "jokbo"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/stop.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -1,5 +1,6 @@
 """SessionStart hook — what changed since this machine last looked, as facts: commits and document sections. Never a
-product's state (each product says its own at session start); never an instruction. Nothing new: silent. A worker session
+product's state (each product says its own at session start); never an instruction. Nothing new: silent. Where the machine last looked is marked when a session's answer ends (stop.py), so a resumed session
+is not told its own commits back. A worker session
 (AGENT_WORKER=1): silent — what it may read is its hirer's to say. Under hunsu's probe (HUNSU_SURVEY=1) it answers its
 standing text and writes nothing: the probe ran it in guin-site and marked the machine as having looked, before any
 session had. Otherwise writes only the cache (`.jokbo/`, ignored)."""
@@ -26,9 +27,10 @@ def main():
     if os.environ.get("HUNSU_SURVEY"):
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": STANDING}}))
         return 0
-    target = os.path.abspath(payload.get("cwd") or os.getcwd())
-    if jokbo.git(target, "rev-parse", "--is-inside-work-tree") is None:
+    cwd = os.path.realpath(payload.get("cwd") or os.getcwd())
+    if jokbo.git(cwd, "rev-parse", "--is-inside-work-tree") is None:
         return 0
+    target = jokbo.project_root(cwd)
     try:
         seen = jokbo.load(jokbo.last_seen_path(target))
         head = (jokbo.git(target, "rev-parse", "HEAD") or "").strip()
@@ -41,7 +43,8 @@ def main():
             msg = None
         else:
             msg = "\n".join(jokbo.since_report(target, seen["head"], brief=True)) + "\n(`%s \"%s\" since %s` for all of it)" % (jokbo.PY, engine, seen["head"][:7])
-        jokbo.mark_seen(target)
+        if not seen.get("head"):
+            jokbo.mark_seen(target)   # the first look; after it, where it last looked is marked when an answer ends (stop.py)
     except SystemExit:
         return 0
     if msg:

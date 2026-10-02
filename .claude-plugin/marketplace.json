@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "jokbo on its own: `claude plugin marketplace add guinjaaaaaaaaaaaaaaaaaaaaakeop/jokbo` then `claude plugin install jokbo@jokbo`.",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "jokbo",
       "source": "./",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "description": "The reader of the LLM-development era."
     }
   ]

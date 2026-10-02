@@ -30,7 +30,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 3
+INDEX_FORMAT = 4
 PY = "python3" if shutil.which("python3") else "python"
 DOC_EXT = (".md", ".markdown")
 CODE_EXT = (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".astro", ".vue", ".svelte", ".css", ".scss", ".html", ".sql",
@@ -41,6 +41,7 @@ STOP = {"src", "lib", "index", "the", "and", "for", "with", "this", "that", "fro
         "test", "tests", "not", "are", "was", "but", "else", "elif", "then", "string", "number", "type", "json", "html", "css",
         "assets", "public", "components", "pages", "scripts", "mjs", "md"}
 SHOW = 3             # sections put in front of an edit
+BRIEF_LINES, BRIEF_WIDTH, BRIEF_CHARS = 10, 200, 1200   # a declared read, told in brief
 
 
 def version():
@@ -72,6 +73,13 @@ def git(target, *a):
     except OSError:
         return None
     return done.stdout if done.returncode == 0 else None
+
+
+def project_root(path):
+    """The project a path belongs to: its git work tree's top, whatever directory the shell has moved to (a hook's cwd is
+    the shell's — `cd tests` once made jokbo keep a second cache in tests/ and read `test_bots.py` as a file of its own)."""
+    top = git(path, "rev-parse", "--show-toplevel") if os.path.isdir(path) else None
+    return os.path.realpath(top.strip()) if top and top.strip() else os.path.realpath(path)
 
 
 def cache_dir(target):
@@ -482,71 +490,169 @@ def rank_items(items, query, top):
     return [items[i] for sc, i in scored[:top] if sc > 0]
 
 
-# ---------------------------------------------------------------- what a shell command is about to write
+# ---------------------------------------------------------------- what a shell command reads and writes
 
-SCRIPT_WRITE = re.compile(r"open\([^)]*['\"][wa]b?['\"]|write_text|writeFileSync|writeFile\(|\.write\(|json\.dump\(|shutil\.(?:move|copy)|os\.(?:rename|replace|remove)")
+SCRIPT_WRITE = re.compile(r"open\([^)]*['\"][wax]b?\+?['\"]|write_text|write_bytes|writeFileSync|writeFile\(|json\.dump\(|shutil\.(?:move|copy)|os\.(?:rename|replace|remove)|unlink\(")
 SHELL_WRITE = re.compile(r"(?<![0-9&<])>>?|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-p?i|\btee\b|\bgit\s+(?:mv|rm)\b|(?:^|[\s;&|(])(?:mv|cp|rm|touch)\s")
+SHELL_READ = re.compile(r"(?:^|[\s;&|(])(?:cat|head|tail|sed|awk|less|more|nl|bat|grep|egrep|rg)\s")
+READERS = {"cat": 0, "head": 0, "tail": 0, "less": 0, "more": 0, "nl": 0, "bat": 0, "sed": 1, "awk": 1, "grep": 1, "egrep": 1, "rg": 1}
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n(.*?)\n[ \t]*\2[ \t]*(?=\n|$)", re.S)
 
 
-def bash_targets(target, command, files):
-    """The project files a shell command is about to write — an edit is an edit whichever tool makes it (guin-site, 10-02:
-    102 Bash calls, no Edit, and the edit hook never fired). Redirect targets; the operands of mv, cp, rm, touch, tee,
-    `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for the files under it); and, in an inline script that writes,
-    every project file it names. Measured on that cycle: the 46 files it changed all found, 7 more named."""
+def shell_words(text):
+    """Words of a shell command with its operators apart (`>`, `>>`, `&&`, `|`, `;`), quotes honoured: a `>` inside a
+    commit message is not a redirect (guin-site, 10-02: one was read as writing the files a `git add` named)."""
     import shlex
+    try:
+        lx = shlex.shlex(text, posix=True, punctuation_chars=True)
+        lx.whitespace_split = True
+        return list(lx)
+    except ValueError:
+        return text.split()
+
+
+def script_targets(script):
+    """The paths an inline script writes: the first argument of each writing call — a string, or a name whose assignment
+    holds strings (`p = ROOT / "plan" / "PLAN.md"`, `for p in ["a.md", "b.md"]`). A path the script only reads is not
+    written: on guin-site a script that wrote PLAN.md and read three others was taken for writing all four."""
+    calls = [r"open\(\s*([^,()]+?)\s*,\s*['\"][wax]", r"([\w.\[\]'\"/ ()]+?)\.write_(?:text|bytes)\(", r"writeFile(?:Sync)?\(\s*([^,()]+?)\s*,",
+             r"json\.dump\([^,]+,\s*open\(\s*([^,()]+?)\s*,", r"shutil\.(?:move|copy\w*)\([^,]+,\s*([^,()]+?)\s*[,)]",
+             r"os\.(?:rename|replace)\([^,]+,\s*([^,()]+?)\s*[,)]", r"os\.remove\(\s*([^,()]+?)\s*\)", r"([\w.]+)\.unlink\("]
+    out, unresolved = set(), False
+
+    def literals(expr):
+        lits = re.findall(r"['\"]([^'\"]+)['\"]", expr)
+        return ["/".join(lits)] if lits else []
+
+    for pat in calls:
+        for m in re.finditer(pat, script):
+            arg = m.group(1).strip()
+            lits = literals(arg)
+            if lits:
+                out.update(lits)
+                continue
+            name = re.match(r"[A-Za-z_]\w*", arg)
+            if not name:
+                unresolved = True
+                continue
+            n = re.escape(name.group(0))
+            found = set()
+            for a in re.finditer(r"(?m)^[ \t]*%s\s*=\s*(.+)$" % n, script):
+                found.update(literals(a.group(1)))
+            for a in re.finditer(r"for\s+%s\s+in\s+[\[(]([^\])]*)[\])]" % n, script):
+                found.update(re.findall(r"['\"]([^'\"]+)['\"]", a.group(1)))
+            out |= found
+            unresolved = unresolved or not found
+    if unresolved:
+        # a name bound some other way (`for path, text in files.items()`): the path-like strings it could hold, less those
+        # the script only reads — guin-site's eight new endpoint files were written from a dict this way
+        reads = set(re.findall(r"(?:Path\(\s*|open\(\s*)['\"]([^'\"]+)['\"]\s*\)?\s*(?:\.read_(?:text|bytes)\(|\)|,\s*['\"]r)", script))
+        out |= {p for p in re.findall(r"['\"]([\w.\[\]-]+(?:/[\w.\[\]-]+)*\.\w+)['\"]", script) if p not in reads}
+    return out
+
+
+def shell_files(target, cwd, command, files):
+    """(written, read): the project files a shell command writes and reads, relative to the project root. Paths are read
+    against the shell's directory, which follows `cd` (the hook's cwd is the shell's: a command run in tests/ named
+    `test_bots.py`, and the file was taken for another). Writes: redirect targets; operands of mv, cp, rm, touch, tee,
+    `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for its files); paths an inline script writes. Reads: operands
+    of cat, head, tail, sed, awk, grep, rg, less, nl — files only, never a whole directory."""
+    root = os.path.realpath(target)
+    fileset = set(files)
+    cwd = os.path.realpath(cwd or root)
+    written, read = set(), set()
+
+    def rel(tok, here):
+        tok = os.path.expanduser(tok)
+        full = os.path.normpath(tok if os.path.isabs(tok) else os.path.join(here, tok))
+        if full != root and not full.startswith(root + os.sep):
+            return None
+        return os.path.relpath(full, root).replace(os.sep, "/")
+
+    def as_files(tok, here, dirs=True):
+        if not tok or tok.startswith(("-", "$")) or any(c in tok for c in "*?{"):
+            return set()
+        r = rel(tok, here)
+        if r is None:
+            return set()
+        if r in fileset:
+            return {r}
+        return {f for f in files if f.startswith(r.rstrip("/") + "/")} if dirs and r != "." else set()
+
+    # inline scripts first: their bodies are data to the shell, and what they write is in their own words
+    for m in HEREDOC.finditer(command):
+        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
+        if re.search(r"\b(?:python3?|node|ruby|perl)\b", line):
+            for p in script_targets(m.group(3)):
+                written |= as_files(p, cwd, dirs=False)
+    for m in re.finditer(r"\b(?:python3?|node)\s+-[ce]\s+(['\"])(.*?)\1", command, re.S):
+        for p in script_targets(m.group(2)):
+            written |= as_files(p, cwd, dirs=False)
+    body = HEREDOC.sub("", command)
+    here = cwd
+    for line in body.split("\n"):
+        words_ = shell_words(line)
+        cmds, cur = [], []
+        for w in words_:
+            if w in ("&&", "||", ";", "|", "&", "(", ")"):
+                cmds.append(cur)
+                cur = []
+            else:
+                cur.append(w)
+        cmds.append(cur)
+        for w in cmds:
+            i = 0
+            while i < len(w):   # redirects first, wherever they stand
+                if w[i] in (">", ">>", ">|", "&>") and i + 1 < len(w):
+                    if not (i > 0 and w[i - 1].isdigit() and w[i + 1].startswith("&")):
+                        written |= as_files(w[i + 1], here, dirs=False)
+                    del w[i:i + 2]
+                    if i > 0 and w[i - 1].isdigit():
+                        del w[i - 1]
+                        i -= 1
+                    continue
+                if w[i] in ("<", ">&", "<<", "<<<") and i + 1 < len(w):
+                    del w[i:i + 2]
+                    continue
+                i += 1
+            while w and re.match(r"^\w+=", w[0]):
+                w = w[1:]
+            if not w:
+                continue
+            if w[0] == "cd":
+                if len(w) > 1:
+                    nxt = os.path.normpath(os.path.join(here, os.path.expanduser(w[1])))
+                    here = nxt if os.path.isdir(nxt) else here
+                continue
+            args = [a for a in w[1:] if not a.startswith("-")]
+            if w[0] == "git" and len(w) > 1 and w[1] in ("mv", "rm"):
+                for a in w[2:]:
+                    if not a.startswith("-"):
+                        written |= as_files(a, here)
+            elif w[0] == "cp" and len(args) >= 2:
+                written |= as_files(args[-1], here)   # the copy is written; its sources are read
+                for a in args[:-1]:
+                    read |= as_files(a, here, dirs=False)
+            elif w[0] in ("mv", "rm", "touch", "tee"):
+                for a in args:
+                    written |= as_files(a, here)
+            elif w[0] in ("sed", "perl") and any(re.match(r"-[a-z]*i", a) for a in w[1:]):
+                ops = args[1:] if not any(a in ("-e", "-f") for a in w[1:]) else args
+                for a in ops:
+                    written |= as_files(a, here, dirs=False)
+            elif w[0] in READERS:
+                skip = READERS[w[0]] if not any(a in ("-e", "-f") for a in w[1:]) else 0
+                for a in args[skip:]:
+                    read |= as_files(a, here, dirs=False)
+    return sorted(written), sorted(read - written)
+
+
+def bash_targets(target, command, files, cwd=None):
+    """The project files a shell command is about to write — an edit is an edit whichever tool makes it (guin-site, 10-02:
+    102 Bash calls, no Edit, and the edit hook never fired)."""
     if not (SHELL_WRITE.search(command) or SCRIPT_WRITE.search(command)):
         return []
-    fileset = set(files)
-    base = collections.Counter(os.path.basename(f) for f in files)
-    root = os.path.abspath(target) + os.sep
-
-    def as_files(tok):
-        tok = tok.strip("'\"").rstrip("/")
-        if tok.startswith(root):
-            tok = tok[len(root):]
-        tok = tok[2:] if tok.startswith("./") else tok
-        if tok in fileset:
-            return {tok}
-        if not tok or tok.startswith(("-", "/", "$", "~")):
-            return set()
-        return {f for f in files if f.startswith(tok + "/")}
-
-    def named(text):
-        out = {f for f in files if f in text}
-        out |= {f for f in files if base[os.path.basename(f)] == 1 and len(os.path.basename(f)) > 4
-                and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(f)) + r"(?![\w-])", text)}
-        return out
-
-    out = set()
-    for m in re.finditer(r"\b(?:python3?|node|ruby|perl)\s+(?:-c\s|-e\s|-\s*<<|<<)", command):
-        if SCRIPT_WRITE.search(command[m.start():]):
-            out |= named(command[m.start():])
-    body = re.sub(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\b", "", command, flags=re.S)   # heredoc bodies are data, not commands
-    for part in re.split(r"&&|\|\||;|\||\n", body):
-        for m in re.finditer(r"(?<![0-9&<])>>?\s*([^\s;&|<>]+)", part):
-            out |= as_files(m.group(1))
-        try:
-            w = shlex.split(part)
-        except ValueError:
-            w = part.split()
-        while w and re.match(r"^\w+=", w[0]):
-            w = w[1:]
-        if not w:
-            continue
-        if w[0] == "git" and len(w) > 1 and w[1] in ("mv", "rm"):
-            args = w[2:]
-        elif w[0] in ("mv", "cp", "rm", "touch", "tee"):
-            args = w[1:]
-        elif w[0] == "sed" and any(a.startswith("-i") for a in w):
-            args = w[1:]
-        elif w[0] == "perl" and any(re.match(r"-p?i", a) for a in w):
-            args = w[1:]
-        else:
-            continue
-        for a in args:
-            if not a.startswith("-"):
-                out |= as_files(a)
-    return sorted(out)
+    return shell_files(target, cwd or target, command, files)[0]
 
 
 # ---------------------------------------------------------------- commands
@@ -592,6 +698,7 @@ def file_report(target, path, brief=False):
             lines.append("  %s  (lines %d-%d) — %s" % (s["id"], s["start"], s["end"], fresh))
     else:
         lines.append("documents: no %ssection shares its words" % ("other " if doc else ""))
+    named = []
     if doc:
         named = sorted({g for s in (idx.get("entries", {}).get(path) or {}).get("sections", []) for g in s.get("names", [])})
         if named:
@@ -610,6 +717,7 @@ def file_report(target, path, brief=False):
         lines.append("last changed by:")
         for c in hist:
             lines.append("  %s %s %s — %s" % (when(c["at"]), c["sha"][:7], c["author"], c["subject"]))
+    said_something = bool(secs or hist or (doc and named))
     for plugin, text, why in overlay(target, "file", {"path": path}):
         if why:
             lines.append("%s (declared `file` read): not read — %s" % (plugin, why))
@@ -617,10 +725,24 @@ def file_report(target, path, brief=False):
         if not text.strip():
             continue   # it has nothing on this file: nothing to say
         body = text.split("\n")
-        if brief and len(body) > 12:
-            body = body[:12] + ["  … %d more line(s) — `%s \"%s\" file %s` prints them all" % (len(body) - 12, PY, os.path.join(HERE, "jokbo.py").replace(os.sep, "/"), path)]
+        if brief:
+            # a declared read is told in brief: its first lines, each cut, under a size a context can carry (two long run
+            # briefs once made 20 KB, and the host put it in a file the agent never opened)
+            kept, size = [], 0
+            for l in body[:BRIEF_LINES]:
+                l = l if len(l) <= BRIEF_WIDTH else l[:BRIEF_WIDTH] + " …"
+                if size + len(l) > BRIEF_CHARS:
+                    break
+                kept.append(l)
+                size += len(l)
+            if len(kept) < len(body):
+                kept.append("  … `%s \"%s\" file %s` prints all %d line(s)" % (PY, os.path.join(HERE, "jokbo.py").replace(os.sep, "/"), path, len(body)))
+            body = kept
         lines.append("%s (declared `file` read):" % plugin)
         lines.extend("  " + l for l in body)
+        said_something = True
+    if brief and not said_something:
+        return []   # nothing speaks of it: a hook says nothing rather than "nothing"
     return lines
 
 
@@ -729,6 +851,37 @@ def find_report(target, terms):
     return lines
 
 
+FULL = 2   # files told in full per hook call; the rest are named
+
+
+def tell(target, rels, session_id, why):
+    """What a hook says about files the session is reading or writing: each file once per session (a file the read hook
+    told is not told again at its edit), at most FULL told in full, the rest named; nothing for a file that is new or
+    that nothing speaks of. `why`: "read" or "write", for the line that names the rest."""
+    sid = re.sub(r"[^\w.-]", "_", str(session_id or "no-session"))
+    shown_path = os.path.join(cache_dir(target), "sessions", sid + ".json")
+    shown = load(shown_path, default=[])
+    rp = record_paths(target) + (".git/",)
+    new = [r for r in rels if r not in shown and not r.startswith(rp) and os.path.isfile(os.path.join(target, r))]
+    if not new:
+        return []
+    lines, told = [], []
+    for rel in new:
+        if len(told) == FULL:
+            break
+        out = file_report(target, rel, brief=True)
+        told.append(rel)
+        if out:
+            lines.extend(out)
+    rest = new[len(told):]
+    if rest and lines:
+        lines.append("jokbo — this also %s %d more file(s): %s%s — `%s \"%s\" file PATH` for any of them"
+                     % ("reads" if why == "read" else "writes", len(rest), ", ".join(rest[:8]), " …" if len(rest) > 8 else "",
+                        PY, os.path.join(HERE, "jokbo.py").replace(os.sep, "/")))
+    save(shown_path, shown + told)
+    return lines
+
+
 def mark_seen(target):
     head = (git(target, "rev-parse", "HEAD") or "").strip()
     if head:
@@ -753,7 +906,7 @@ def main(argv=None):
         if name == "index":
             p.add_argument("--rebuild", action="store_true")
     args = ap.parse_args(argv)
-    target = os.path.abspath(args.target)
+    target = project_root(os.path.abspath(args.target))
     if args.cmd == "file":
         print("\n".join(file_report(target, args.path)))
     elif args.cmd == "since":
