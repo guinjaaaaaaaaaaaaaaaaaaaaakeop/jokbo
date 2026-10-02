@@ -1,13 +1,14 @@
 ---
 name: read
-description: Use when you need to know something about this project before acting — before editing a file you have not read the documents for, when asked what was decided about something, how something works or why it is the way it is, or when catching up on what changed. Says where to read and how current each source is; it does not answer for you.
+description: Use when a question about this project comes up that its records may already answer — "what did we decide about X", "why is it this way", "where is X described", "what happened in that run / today", "what changed since I last looked", "what stands on this file before I change it", or the owner asks any of these. Answers with the project's own sentences, quoted, and where each is from and how current it is.
 ---
 
 The engine is `jokbo.py` at this plugin's root: `python3 <plugin root>/jokbo.py <command> --target <project>` (`python` where there is no `python3`).
 
-1. Before editing a file: `file PATH`. The edit hook already puts this in front of the first edit of each file in a session; run it by hand when you plan a change across files. Open the sections it names that bear on the change and read them before you edit. A section marked "the file changed after" may describe the code as it was — read it against the code.
-2. "What did we decide about X / where is X described": `find WORDS` (the project's own words work best: a field name, a page name, a term from the plan). Read the sections and commits it names; quote them when you answer, and say when two of them disagree instead of choosing.
-3. Catching up: `since` (from where this machine last looked; the session-start line says the same in brief) or `since REV`.
-4. What a declared read prints (a product's own record: relations, runs, findings) is that product's word; jokbo's ranking is shared words, confirmed by nobody. Say which one you relied on.
+- **What was decided / where it is said / why it is so**: `find WORDS` — use the project's own words (a field name, a page name, a term from the plan). It returns each document section with the sentence that says it, the code's own words, the commits, and what the declared `decision` reads (the net's questions and meanings, the environment's resolutions) say. Answer from those sentences, quoting them and naming where each is from; when two disagree, say so instead of choosing.
+- **What changed**: `since` (since this machine last looked) or `since REV`.
+- **Everything that stands on a file**: `file PATH` — the sections that speak of it with how current each is, who last changed it, and what each declared `file` read says.
+
+The session-start map and the one-line notes at a file's first look come from the hooks; they are pointers and facts, not the whole answer — ask when the question is yours. What a declared read prints is that product's word; jokbo's ranking is shared words, confirmed by nobody: say which you relied on.
 
 jokbo reads; it never edits the project. `.jokbo/` is a cache: never commit it.

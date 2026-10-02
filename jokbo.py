@@ -7,6 +7,8 @@
   find WORDS... [--target DIR]    where the project speaks of something: document sections, the code's own words
                                   (docstrings, leading comments), commit subjects, and the declared `decision` reads
   index [--target DIR]            build the cache now and say what it holds (every other command builds it when stale)
+  map [--target DIR]              what the session-start hook says: what this project holds, and how to ask
+  note PATH [--target DIR]        what the read hook says at the first look at a file: a line per fact that bears on it
 
 The base layer is what every project has: its documents (Markdown, by heading), its code (as the targets things point at,
 and its docstrings and leading comments) and its git history. Products' records are an overlay, read only through what the
@@ -30,7 +32,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 4
+INDEX_FORMAT = 5
 PY = "python3" if shutil.which("python3") else "python"
 DOC_EXT = (".md", ".markdown")
 CODE_EXT = (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".astro", ".vue", ".svelte", ".css", ".scss", ".html", ".sql",
@@ -40,7 +42,7 @@ STOP = {"src", "lib", "index", "the", "and", "for", "with", "this", "that", "fro
         "export", "default", "true", "false", "null", "none", "self", "def", "class", "let", "var", "new", "async", "await",
         "test", "tests", "not", "are", "was", "but", "else", "elif", "then", "string", "number", "type", "json", "html", "css",
         "assets", "public", "components", "pages", "scripts", "mjs", "md"}
-SHOW = 3             # sections put in front of an edit
+SHOW = 3             # sections `file` names
 BRIEF_LINES, BRIEF_WIDTH, BRIEF_CHARS = 10, 200, 1200   # a declared read, told in brief
 
 
@@ -814,14 +816,52 @@ def changed_sections(target, idx, rev):
     return hit
 
 
+def sentences(text):
+    """A section's sentences: Markdown marks stripped, cut at sentence ends and line breaks."""
+    out = []
+    for block in re.split(r"\n\s*\n|\n(?=\s*(?:[-*+]|\d+\.)\s)", text):
+        block = re.sub(r"^\s*(?:#+|[-*+]|\d+\.)\s*", "", block.strip()).replace("\n", " ")
+        for sent in re.split(r"(?<=[.!?。])\s+(?=\S)|(?<=다\.)\s+", block):
+            sent = sent.strip()
+            if len(sent) > 15:
+                out.append(sent)
+    return out
+
+
+def quote(target, idx, section, query, least=2):
+    """The sentence of a section that shares the most (and rarest) words with the query — what the section says about it,
+    in its own words; None when no sentence shares `least` words. Pointers alone were never opened (guin-site: three
+    cycles, ~130 k characters of section ids, none followed); a sentence is in front of the reader already."""
+    lines = read_text(target, section["file"]).split("\n")[section["start"] - 1:section["end"]]
+    df = collections.Counter(t for s in idx["sections"] for t in set(s["words"]))
+    n = max(len(idx["sections"]), 1)
+    q = set(query)
+    best, score = None, 0.0
+    for sent in sentences("\n".join(lines[1:] if section.get("heading") else lines)):
+        shared = q & set(words(sent))
+        if len(shared) < least:
+            continue
+        sc = sum(math.log(1 + n / (1 + df[t])) for t in shared)
+        if sc > score:
+            best, score = sent, sc
+    if best and len(best) > QUOTE:
+        best = best[:QUOTE].rstrip() + " …"
+    return best
+
+
 def find_report(target, terms):
+    """Where the project speaks of something — each section with the sentence that says it, the code's own words, the
+    commits, and the lines of the declared `decision` reads that share the words. An answer to read, not a list to open."""
     idx = index(target)
     q = words(" ".join(terms))
     lines = ["jokbo — where the project speaks of: %s (ranked by shared words, confirmed by nobody)" % " ".join(terms)]
     secs = rank_sections(idx, q, top=6)
     lines.append("documents:" if secs else "documents: nothing shares these words")
     for s in secs:
-        lines.append("  %s  (lines %d-%d) — written %s" % (s["id"], s["start"], s["end"], when(s.get("changed"))))
+        lines.append("  %s  (lines %d-%d, written %s)" % (s["id"], s["start"], s["end"], when(s.get("changed"))))
+        said_here = quote(target, idx, s, q, least=1)
+        if said_here:
+            lines.append("    \u201c%s\u201d" % said_here)
     said = rank_items(idx["said"], q, 4)
     if said:
         lines.append("the code's own words:")
@@ -851,35 +891,141 @@ def find_report(target, terms):
     return lines
 
 
-FULL = 2   # files told in full per hook call; the rest are named
+# ---------------------------------------------------------------- what a hook says: a map, a line, a change
+
+FULL = 2      # files told per hook call; the rest are named
+QUOTE = 220   # a quoted sentence, at most
+NOTE_LINES, NOTE_WIDTH = 3, 200   # a declared `note` read: its first lines, each cut
+
+
+def engine_path():
+    return os.path.join(HERE, "jokbo.py").replace(os.sep, "/")
+
+
+def map_report(target):
+    """What this project holds and how to ask — not the content. Said once at session start and frozen for the session (a
+    map rewritten mid-session breaks the prompt cache and says things twice): the documents and how many sections each
+    has, a line from each product that declares a `map` read, and the three questions jokbo answers."""
+    idx = index(target)
+    per_doc = collections.Counter(s["file"] for s in idx["sections"])
+    lines = ["jokbo — what this project holds, and how to ask:"]
+    if per_doc:
+        docs = ["%s (%d)" % (f, n) for f, n in per_doc.most_common(6)]
+        more = len(per_doc) - len(docs)
+        lines.append("  documents (sections): %s%s" % (", ".join(docs), ", +%d more" % more if more > 0 else ""))
+    for plugin, text, why in overlay(target, "map", {}):
+        if text and text.strip():
+            first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
+            lines.append("  %s: %s" % (plugin, " · ".join(l if len(l) <= 240 else l[:240] + " …" for l in first)))
+    lines.append("  ask: `%s \"%s\" find WORDS` — what was decided and where it is said, quoted; `since [REV]` — what changed; "
+                 "`file PATH` — all that stands on a file" % (PY, engine_path()))
+    return lines
+
+
+def note_report(target, path):
+    """A line or two per fact that bears on a file, at the session's first look at it: what each product that declares a
+    `note` read says of it (the meaning of the concept it realizes, the last run that touched it, an open finding); with
+    none saying anything, the one document sentence that speaks of it most directly, with its section and how current it
+    is. [] when nothing does — a hook says nothing rather than "nothing"."""
+    path = relpath(target, path)
+    lines = []
+    for plugin, text, why in overlay(target, "note", {"path": path}):
+        if text and text.strip():
+            for l in [l.strip() for l in text.strip().split("\n") if l.strip()][:NOTE_LINES]:
+                lines.append("  %s: %s" % (plugin, l if len(l) <= NOTE_WIDTH else l[:NOTE_WIDTH] + " …"))
+    if not lines:
+        idx = index(target)
+        exists = os.path.isfile(os.path.join(target, path))
+        query = words(read_text(target, path) + " " + path) if exists and is_text(target, path) else words(path)
+        top = rank_sections(idx, query, about=path, top=1)
+        said = quote(target, idx, top[0], query, least=3) if top else None
+        if said:
+            s = top[0]
+            fresh = ("written %s" % stamp(s["changed"]) if s.get("changed") else "being edited") if path.lower().endswith(DOC_EXT) \
+                else freshness(s, file_changed(target, path) if exists else None)
+            lines.append("  %s (%s): \u201c%s\u201d" % (s["id"], fresh, said))
+    return ["jokbo — %s:" % path] + lines if lines else []
+
+
+def session_state(target, session_id):
+    sid = re.sub(r"[^\w.-]", "_", str(session_id or "no-session"))
+    path = os.path.join(cache_dir(target), "sessions", sid + ".json")
+    st = load(path, default={})
+    return (st if isinstance(st, dict) else {}), path   # a list was 1.1/1.2's shown-files: a new format starts over
+
+
+def snapshot(target):
+    """The tree as a session sees it between its calls: HEAD, and every path that differs from it with its status."""
+    head = (git(target, "rev-parse", "HEAD") or "").strip()
+    out = git(target, "status", "--porcelain", "-z", "--untracked-files=all", "--", ".") or ""
+    status, parts, i = {}, out.split("\0"), 0
+    while i < len(parts):
+        entry = parts[i]
+        i += 1
+        if len(entry) >= 4:
+            status[entry[3:]] = entry[:2]
+            if entry[0] in "RC" or entry[1] in "RC":
+                i += 1
+    return {"head": head, "status": status}
+
+
+def change_report(target, old, new):
+    """What changed between two snapshots that this session did not do — another session, a hired worker, the owner:
+    commits, and the paths changed, grouped by whose records they are (the lock's `record-paths`; jokbo names no
+    product), documents, and the rest. [] when nothing did."""
+    if not old or old == new:
+        return []
+    paths = {p for p in set(old.get("status", {})) | set(new.get("status", {})) if old.get("status", {}).get(p) != new.get("status", {}).get(p)}
+    commits = []
+    if old.get("head") and new.get("head") and old["head"] != new["head"]:
+        log = git(target, "log", "--format=%h %s", "%s..%s" % (old["head"], new["head"]), "--") or ""
+        commits = [l for l in log.splitlines() if l.strip()]
+        names = git(target, "diff", "--name-only", "-z", old["head"], new["head"], "--") or ""
+        paths |= {p for p in names.split("\0") if p}
+    paths = {p for p in paths if not p.startswith((CACHE + "/", ".git/"))}
+    if not commits and not paths:
+        return []
+    _, lock = manifest_and_lock(target)
+    owners = lock.get("record-paths") if isinstance(lock.get("record-paths"), dict) else {}
+    groups = collections.OrderedDict()
+    for p in sorted(paths):
+        who = next((plugin for plugin, ps in sorted(owners.items()) for q in ps if p.startswith(q) or p == q.rstrip("/")), None)
+        key = ("%s's records" % who) if who else ("documents" if p.lower().endswith(DOC_EXT) else "files")
+        groups.setdefault(key, []).append(p)
+    lines = ["jokbo — changed by another hand since this session's last call:"]
+    if commits:
+        lines.append("  %d commit(s): %s%s" % (len(commits), "; ".join(commits[:3]), " …" if len(commits) > 3 else ""))
+    for key, ps in groups.items():
+        lines.append("  %s: %s%s" % (key, ", ".join(ps[:4]), " +%d more" % (len(ps) - 4) if len(ps) > 4 else ""))
+    return lines
 
 
 def tell(target, rels, session_id, why):
-    """What a hook says about files the session is reading or writing: each file once per session (a file the read hook
-    told is not told again at its edit), at most FULL told in full, the rest named; nothing for a file that is new or
-    that nothing speaks of. `why`: "read" or "write", for the line that names the rest."""
-    sid = re.sub(r"[^\w.-]", "_", str(session_id or "no-session"))
-    shown_path = os.path.join(cache_dir(target), "sessions", sid + ".json")
-    shown = load(shown_path, default=[])
+    """What a hook says about files the session reads or writes: each file once per session (whichever hook comes first),
+    at most FULL told, the rest named; a note, not a report (see note_report)."""
+    st, path = session_state(target, session_id)
+    shown = st.get("shown", [])
     rp = record_paths(target) + (".git/",)
     new = [r for r in rels if r not in shown and not r.startswith(rp) and os.path.isfile(os.path.join(target, r))]
     if not new:
         return []
     lines, told = [], []
-    for rel in new:
-        if len(told) == FULL:
-            break
-        out = file_report(target, rel, brief=True)
+    for rel in new[:FULL]:
+        lines.extend(note_report(target, rel))
         told.append(rel)
-        if out:
-            lines.extend(out)
-    rest = new[len(told):]
-    if rest and lines:
-        lines.append("jokbo — this also %s %d more file(s): %s%s — `%s \"%s\" file PATH` for any of them"
-                     % ("reads" if why == "read" else "writes", len(rest), ", ".join(rest[:8]), " …" if len(rest) > 8 else "",
-                        PY, os.path.join(HERE, "jokbo.py").replace(os.sep, "/")))
-    save(shown_path, shown + told)
+    st["shown"] = shown + told
+    save(path, st)
     return lines
+
+
+def remember(target, session_id, snap=None, reset=False):
+    """Keep where the session's last call left the tree (so what changes between its calls is another hand's)."""
+    st, path = session_state(target, session_id)
+    if reset:
+        st = {}
+    st["last"] = snap or snapshot(target)
+    save(path, st)
+    return st
 
 
 def mark_seen(target):
@@ -893,7 +1039,7 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="jokbo", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("file", "since", "find", "index"):
+    for name in ("file", "since", "find", "index", "map", "note"):
         p = sub.add_parser(name)
         p.add_argument("--target", default=".")
         if name == "file":
@@ -903,6 +1049,8 @@ def main(argv=None):
             p.add_argument("--mark", action="store_true", help="then record HEAD as where this machine last looked")
         if name == "find":
             p.add_argument("terms", nargs="+")
+        if name == "note":
+            p.add_argument("path", help="a file: the lines the read hook gives at the first look at it")
         if name == "index":
             p.add_argument("--rebuild", action="store_true")
     args = ap.parse_args(argv)
@@ -915,6 +1063,10 @@ def main(argv=None):
             mark_seen(target)
     elif args.cmd == "find":
         print("\n".join(find_report(target, args.terms)))
+    elif args.cmd == "map":
+        print("\n".join(map_report(target)))
+    elif args.cmd == "note":
+        print("\n".join(note_report(target, args.path)))
     elif args.cmd == "index":
         idx = index(target, rebuild=args.rebuild)
         docs = sorted({s["file"] for s in idx["sections"]})

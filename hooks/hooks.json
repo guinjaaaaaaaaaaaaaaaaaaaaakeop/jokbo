@@ -13,28 +13,37 @@
         ]
       }
     ],
-    "PreToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write.py\"",
-            "timeout": 15,
-            "statusMessage": "jokbo"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool.py\"",
+            "timeout": 15
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Read|Bash",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_read.py\"",
-            "timeout": 15,
-            "statusMessage": "jokbo"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool.py\"",
+            "timeout": 15
           }
         ]
       }

@@ -33,7 +33,9 @@ hunsu.lock.json, or in hunsu.json (the project's own declaration, on top):
   "<plugin>": {
     "file":     ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "{path}"],
     "since":    ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--since", "{since}"],
-    "decision": ["python3", "{plugin:<plugin>}/<engine>.py", "<command>"]
+    "decision": ["python3", "{plugin:<plugin>}/<engine>.py", "<command>"],
+    "note":     ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "{path}", "--brief"],
+    "map":      ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--brief"]
   }
 }
 ```
@@ -73,35 +75,40 @@ uncommitted work, and the declared `since` reads. `--mark` records HEAD as looke
 Where the project speaks of something: document sections, the code's own words, commit subjects, and the lines of the
 declared `decision` reads that share the words
 
-`index [--rebuild]` builds the cache and says what it holds; every command refreshes it when the tree moved, and only
+`map` and `note PATH` print what the session-start and read hooks say. `index [--rebuild]` builds the cache and says what it holds; every command refreshes it when the tree moved, and only
 for the files that changed (a document is blamed again only when it, or the last commit that touched it, changed).
 
-## Hooks
+## Hooks — a map, a line, a change
 
-- **PostToolUse on Read and on Bash — the first look at a file.** When the session first reads a file (Read, or `cat`,
-  `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `less`, `nl` on it in a shell — files, never a whole directory), `file` in
-  brief. This is the moment before an edit: an agent looks at a file before changing it, and context added to a read
-  arrives before its next call is decided.
-- **PreToolUse on Edit/Write and on Bash — a file written without being read.** The host delivers a PreToolUse context
-  with the tool's result, so it informs the next edit, not this one; it covers what the read hook did not. A shell command
-  is read for the files it writes — redirect targets (quotes honoured: a `>` in a commit message is no redirect); the
-  operands of mv, rm, touch, tee, `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for its files); a copy's
-  destination; what an inline script writes (the first argument of its writing calls, through the names they use).
-- Each file is told once per session, by whichever hook comes first; at most two in full per call, the rest named; a
-  new file, or one nothing speaks of, says nothing. A declared read is told in brief (ten lines, each cut, about 1.2 KB).
-  Paths are read against the shell's directory, which follows `cd`; the cache is the project's, at its root.
-- **SessionStart**: what changed since this machine last looked — commits and document sections, in brief; nothing new,
-  nothing said. Never a product's state (each product says its own) and never an instruction.
-- **Stop**: marks where this machine last looked, when an answer ends — so a resumed session is not told its own commits.
+What jokbo puts in front of the agent is small and said once; what it answers is computed when asked. Three guin-site
+cycles of pasting ranked section lists and other products' whole output into the context (~130 k characters) changed
+nothing the agent did. Other harnesses that get used keep two shapes — something small and curated always present
+(Aider's map, Hermes' frozen memory snapshot, Cursor's always-apply rules), and the rest pulled by the agent when the
+work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) — and jokbo follows them.
 
-All are silent in a worker session (`AGENT_WORKER=1`), outside a git work tree, and for record paths. Under hunsu's probe
-(`HUNSU_SURVEY=1`) the session-start hook answers its standing text and the others say and write nothing. Context only:
-never a permission decision, never a block.
+- **SessionStart — the map.** What this project holds and how to ask, not the content: the documents and their section
+  counts, a line from each product that declares a `map` read (e.g. the net's concepts and open questions), the three
+  questions jokbo answers. Then, in brief, what changed since this machine last looked. Frozen for the session.
+- **PostToolUse — a line at the first look at a file.** When the session first reads a file (Read; cat, head, tail, sed,
+  awk, grep, rg, less, nl on it), a line per fact that bears on it: what each product that declares a `note` read says
+  (the meaning of the concept it realizes, the last run that touched it, an open finding on it); with none, the one
+  document sentence that speaks of it most directly, quoted, with its section and how current it is. A few hundred
+  characters. This arrives before the next call is decided — before an edit.
+- **PreToolUse — a file written without being read** gets the same line (it arrives with the write's result).
+- **Changes by another hand.** What the session does inside its own calls is its own. What changes between them — the
+  owner, another session, a worker — is said once, in a line, at the next prompt (UserPromptSubmit) or call: commits,
+  and paths grouped by whose records they are (the lock's `record-paths`), documents, and the rest.
+- **Stop** marks where this machine last looked and where the session's calls left the tree.
 
-Measured on guin-site's two cycles of 10-02 (the session edited only through Bash): of the files each cycle changed, the
-write reading found 45/46 and 26/30 (the four missed include two a hired worker wrote), naming 0 and 1 file that was not
-changed; 16 of the second cycle's 30 changed files were read before their first edit — told before it. On Claude Code
-2.1.287 the context reaches the model after a read and after a Bash edit.
+Each file once per session; a restart starts over. Paths follow the shell's directory; the cache is the project's, at
+its root. All silent in a worker session (`AGENT_WORKER=1`) and outside a git work tree; under hunsu's probe
+(`HUNSU_SURVEY=1`) the session-start hook answers its standing text and nothing is written. Context only: never a
+permission decision, never a block.
+
+A shell command is read for the files it writes and reads (`shell_files`): redirect targets (quotes honoured); operands
+of mv, rm, touch, tee, `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for its files); a copy's destination; the
+first argument of an inline script's writing calls, through the names they use. Measured on guin-site's 10-02 cycles:
+45/46 and 26/30 of the changed files found, naming 0 and 1 not changed.
 
 ## Settings
 

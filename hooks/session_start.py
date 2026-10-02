@@ -1,54 +1,39 @@
-"""SessionStart hook — what changed since this machine last looked, as facts: commits and document sections. Never a
-product's state (each product says its own at session start); never an instruction. Nothing new: silent. Where the machine last looked is marked when a session's answer ends (stop.py), so a resumed session
-is not told its own commits back. A worker session
-(AGENT_WORKER=1): silent — what it may read is its hirer's to say. Under hunsu's probe (HUNSU_SURVEY=1) it answers its
-standing text and writes nothing: the probe ran it in guin-site and marked the machine as having looked, before any
-session had. Otherwise writes only the cache (`.jokbo/`, ignored)."""
-import json
+"""SessionStart — the map: what this project holds and how to ask (frozen for the session), and, in brief, what changed
+since this machine last looked (marked when an answer ends, so a session's own work is not news). Starts the session's
+state over: a file told before a restart is told again (1.2.0 carried 1.1.0's list over a restart and never spoke of the
+files most edited). Under hunsu's probe (HUNSU_SURVEY=1): its standing text, nothing written."""
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
-import jokbo  # noqa: E402
+sys.path.insert(0, HERE)
+import _common  # noqa: E402
+from _common import jokbo  # noqa: E402
 
-STANDING = ("jokbo: what changed since this machine last looked — commits and the document sections they changed, in brief; "
-            "nothing when nothing changed. Before the first edit of each file, the edit hook names the documents that speak of it "
-            "and how current each is. `jokbo.py file PATH`, `find WORDS`, `since [REV]` by hand.")
+STANDING = ("jokbo: at session start, a map of what this project holds (documents, and a line from each product that declares "
+            "one) and how to ask; at the first look at a file, a line per fact that bears on it; when another hand changes the "
+            "project between this session's calls, a line saying what. `jokbo.py find WORDS`, `since [REV]`, `file PATH` by hand.")
 
 
 def main():
+    if os.environ.get("HUNSU_SURVEY") and not os.environ.get("AGENT_WORKER"):
+        _common.say("SessionStart", [STANDING])
+        return 0
+    p, target = _common.payload()
+    if not p:
+        return 0
     try:
-        payload = json.loads(sys.stdin.read() or "{}")
-    except ValueError:
-        return 0
-    if os.environ.get("AGENT_WORKER"):
-        return 0
-    if os.environ.get("HUNSU_SURVEY"):
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": STANDING}}))
-        return 0
-    cwd = os.path.realpath(payload.get("cwd") or os.getcwd())
-    if jokbo.git(cwd, "rev-parse", "--is-inside-work-tree") is None:
-        return 0
-    target = jokbo.project_root(cwd)
-    try:
+        lines = jokbo.map_report(target)
         seen = jokbo.load(jokbo.last_seen_path(target))
         head = (jokbo.git(target, "rev-parse", "HEAD") or "").strip()
-        engine = os.path.join(os.path.dirname(HERE), "jokbo.py").replace(os.sep, "/")
         if not seen.get("head"):
-            msg = ("jokbo: first look on this machine. Before editing a file, `%s \"%s\" file PATH` says which documents speak of it "
-                   "and how current they are (the edit hook says it too); `find WORDS` says where the project speaks of something; "
-                   "`since [REV]` what changed." % (jokbo.PY, engine))
-        elif seen["head"] == head:
-            msg = None
-        else:
-            msg = "\n".join(jokbo.since_report(target, seen["head"], brief=True)) + "\n(`%s \"%s\" since %s` for all of it)" % (jokbo.PY, engine, seen["head"][:7])
-        if not seen.get("head"):
-            jokbo.mark_seen(target)   # the first look; after it, where it last looked is marked when an answer ends (stop.py)
+            jokbo.mark_seen(target)
+        elif seen["head"] != head:
+            lines += jokbo.since_report(target, seen["head"], brief=True)
+        jokbo.remember(target, p.get("session_id"), reset=True)
     except SystemExit:
         return 0
-    if msg:
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": msg}}))
+    _common.say("SessionStart", lines)
     return 0
 
 
