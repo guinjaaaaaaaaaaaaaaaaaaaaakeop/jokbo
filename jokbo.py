@@ -1018,6 +1018,31 @@ def tell(target, rels, session_id, why):
     return lines
 
 
+AGENT_TOOLS = ("Agent", "Task")
+
+
+AGENT_STALE = 3 * 3600   # an Agent call with no end after this long is taken as ended (the host died, or the hook missed)
+
+
+def agents_in_flight(target, session_id=None, delta=0, reset=False):
+    """How many sub-agent calls (the host's Agent tool) are running in this project, across sessions. While any is, the
+    tree moves by the session's own hands — sub-agents often run side by side, and each would tell its sibling's writes
+    as another hand's (guin-site, 10-06). Their work becomes the session's when the Agent call ends. A count with no end
+    for AGENT_STALE seconds, or a session starting over, clears it, so a missed end cannot silence the change line."""
+    path = os.path.join(cache_dir(target), "agents.json")
+    st = load(path)
+    st = {k: v for k, v in st.items() if isinstance(v, dict) and time.time() - v.get("at", 0) < AGENT_STALE}
+    if session_id and (delta or reset):
+        sid = str(session_id)
+        n = 0 if reset else max(0, int(st.get(sid, {}).get("n", 0)) + delta)
+        if n:
+            st[sid] = {"n": n, "at": time.time()}
+        else:
+            st.pop(sid, None)
+        save(path, st)
+    return sum(int(v.get("n", 0)) for v in st.values())
+
+
 def remember(target, session_id, snap=None, reset=False):
     """Keep where the session's last call left the tree (so what changes between its calls is another hand's)."""
     st, path = session_state(target, session_id)

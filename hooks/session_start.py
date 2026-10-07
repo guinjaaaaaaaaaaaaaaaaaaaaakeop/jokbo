@@ -31,6 +31,7 @@ def main():
         elif seen["head"] != head:
             lines += jokbo.since_report(target, seen["head"], brief=True)
         jokbo.remember(target, p.get("session_id"), reset=True)
+        jokbo.agents_in_flight(target, p.get("session_id"), reset=True)
     except SystemExit:
         return 0
     _common.say("SessionStart", lines)

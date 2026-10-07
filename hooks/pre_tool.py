@@ -20,9 +20,11 @@ def main():
     try:
         st, _ = jokbo.session_state(target, p.get("session_id"))
         now = jokbo.snapshot(target)
-        if st.get("last"):
+        if st.get("last") and not jokbo.agents_in_flight(target):
             lines += jokbo.change_report(target, st["last"], now)
         jokbo.remember(target, p.get("session_id"), now)
+        if p.get("tool_name") in jokbo.AGENT_TOOLS:
+            jokbo.agents_in_flight(target, p.get("session_id"), +1)
         inp = p.get("tool_input") or {}
         command = inp.get("command") if isinstance(inp.get("command"), str) else None
         rels = []

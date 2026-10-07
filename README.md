@@ -99,6 +99,9 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   owner, another session, a worker — is said once, in a line, at the next prompt (UserPromptSubmit) or call: commits,
   and paths grouped by whose records they are (the lock's `record-paths`), documents, and the rest.
 - **Stop** marks where this machine last looked and where the session's calls left the tree.
+- A call that fails (PostToolUseFailure) is still the session's own: what it wrote is not told back as another hand's.
+  While a sub-agent runs (the host's Agent tool), the change line is silent — siblings' writes are the session's hands,
+  and what they did becomes the session's when the Agent call ends.
 
 Each file once per session; a restart starts over. Paths follow the shell's directory; the cache is the project's, at
 its root. All silent in a worker session (`AGENT_WORKER=1`) and outside a git work tree; under hunsu's probe

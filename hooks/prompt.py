@@ -15,7 +15,7 @@ def main():
     try:
         st, _ = jokbo.session_state(target, p.get("session_id"))
         now = jokbo.snapshot(target)
-        lines = jokbo.change_report(target, st.get("last"), now) if st.get("last") else []
+        lines = jokbo.change_report(target, st.get("last"), now) if st.get("last") and not jokbo.agents_in_flight(target) else []
         jokbo.remember(target, p.get("session_id"), now)
     except SystemExit:
         return 0

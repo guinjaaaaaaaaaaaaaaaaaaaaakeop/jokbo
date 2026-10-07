@@ -422,6 +422,30 @@ def test_find_answers_with_the_sentence_not_only_where():
         assert "plan/PLAN.md#Q-tags — tagging" in out and "\u201cTags live in `content/tags.jsonl`: post, tag, action (added or removed), at, why.\u201d" in out, out
 
 
+def test_a_failed_call_and_a_sub_agents_work_are_the_sessions_own():
+    """A call that wrote and then failed fires PostToolUseFailure; its writes were told back as another hand's. While a
+    sub-agent runs, siblings' writes are the session's hands too — no change line until the Agent call ends."""
+    with Repo() as r:
+        hook("session_start.py", {"cwd": r.dir, "session_id": "f1"})
+        call = {"cwd": r.dir, "session_id": "f1", "tool_name": "Bash", "tool_input": {"command": "echo // x >> src/tags.ts; false"}}
+        hook("pre_tool.py", call)
+        write(r.p("src/tags.ts"), r.read("src/tags.ts") + "// x\n")
+        hook("post_tool.py", dict(call, hook_event_name="PostToolUseFailure"))
+        assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1"})[1], "a failed call's write is its own"
+        agent = {"cwd": r.dir, "session_id": "f1", "tool_name": "Agent", "tool_input": {"prompt": "do it"}}
+        hook("pre_tool.py", agent)
+        write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// a sub-agent's\n")
+        sub = {"cwd": r.dir, "session_id": "sub-2", "tool_name": "Bash", "tool_input": {"command": "ls"}}
+        assert "another hand" not in hook("pre_tool.py", sub)[1], "a sibling's write while sub-agents run is not another hand's"
+        hook("post_tool.py", dict(agent, hook_event_name="PostToolUse"))
+        assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1"})[1], "the sub-agent's work is the session's"
+        assert jokbo.agents_in_flight(r.dir) == 0
+        jokbo.agents_in_flight(r.dir, "lost", +1)
+        assert jokbo.agents_in_flight(r.dir) == 1
+        jokbo.save(r.p(".jokbo/agents.json"), {"lost": {"n": 1, "at": time.time() - jokbo.AGENT_STALE - 1}})
+        assert jokbo.agents_in_flight(r.dir) == 0, "an Agent call with no end for hours does not silence the change line"
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
