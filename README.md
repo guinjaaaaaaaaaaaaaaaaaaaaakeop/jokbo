@@ -86,14 +86,39 @@ nothing the agent did. Other harnesses that get used keep two shapes — somethi
 (Aider's map, Hermes' frozen memory snapshot, Cursor's always-apply rules), and the rest pulled by the agent when the
 work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) — and jokbo follows them.
 
-- **SessionStart — the map.** What this project holds and how to ask, not the content: the documents and their section
-  counts, a line from each product that declares a `map` read (e.g. the net's concepts and open questions), the three
-  questions jokbo answers. Then, in brief, what changed since this machine last looked. Frozen for the session.
+- **SessionStart — the map.** What this project holds and how to ask, not the content: the documents with their
+  sections' headings and line ranges (a lone top heading is the title; a long document shows its higher levels; ~40
+  heading lines in all, the rest counted) — the index a session built itself with `grep -n "^#"` at its first question
+  and then read by `sed -n` ranges (guin-site 10-08) — a line from each product that declares a `map` read (e.g. the
+  net's concepts and open questions), the three questions jokbo answers. Then, in brief, what changed since this machine
+  last looked. Frozen for the session; said again after a compaction (the summary keeps none of it) — without the
+  "what changed" part then: a compaction comes mid-answer, and what was committed since is the session's own.
+- **UserPromptSubmit — what the project already says.** When a prompt asks about something the documents say, up to
+  three of their sentences, quoted, with section and age, before the session reads the prompt — the moment a question
+  arises (guin-site 10-08 → 10-11: about 70 prompts, the reader never asked; the session grepped or answered from memory).
+  Strict, so mostly silent: the sentence shares three of the prompt's words, two of them rare in the documents (in at
+  most 15% of the sections), three rare ones or 40% of the prompt's rare words, never under 20% of them. Korean words are
+  matched without their particles and one verbal ending (만들어 / 만들기), never cut to one syllable (화면, 로고 are
+  nouns); two-letter acronyms (OG, S3) count. Pasted blocks, fenced code, a backquoted command and a command line typed
+  inline (a pipe, a $VAR, a --flag) are not the question — a backquoted single name is; talk (지금, 혹시, 어떻게 …) and "ㄱㄱ" say nothing. Each section once per session. On that session's prompts, against
+  the tree as it was at each: 2 of 71 answered, both right (an error the owner pasted — the contract's row for it; the
+  post types the owner listed — the plan's sentence on them); a question asked in words the documents do not use is missed.
 - **PostToolUse — a line at the first look at a file.** When the session first reads a file (Read; cat, head, tail, sed,
   awk, grep, rg, less, nl on it), a line per fact that bears on it: what each product that declares a `note` read says
   (the meaning of the concept it realizes, the last run that touched it, an open finding on it); with none, the one
   document sentence that speaks of it most directly, quoted, with its section and how current it is. A few hundred
-  characters. This arrives before the next call is decided — before an edit.
+  characters. This arrives before the next call is decided — before an edit. A line is told once per session whichever
+  file it comes with; a line naming something committed since the session started (a commit's hash, a name with four
+  digits or more that is not a date, such as a run id) is left out — it
+  is the session's own work, or the change line said it; and a file the documents name outright gets one pointer to
+  `file`. On guin-site's 10-08 → 10-11 notes: 107 lines → 43.
+- **PostToolUse — a search in the shell is answered.** `git log … [--] PATH`, `git blame PATH` (git's own options such
+  as `-C DIR` skipped; the path taken from where the command ran — `cd`, `-C`, the shell's directory), a recursive grep or
+  rg (quotes read before pipes: `grep -E "a|b"` is one pattern), a grep over documents, the host's Grep tool: what the documents say of that file, or where the project speaks of
+  those words (two sections, quoted, and for words the commit whose subject says most) — once per target per session,
+  two per command. A command that cannot be a search loads nothing. A grep after a pipe filters output and searches nothing; a pattern with no words (`at-31`) is left
+  to grep. (guin-site 10-10: `git log -- wrangler.worker.build.jsonc` to learn why the file exists; the plan's sentence
+  and the commit that say so come back.)
 - **PreToolUse — a file written without being read** gets the same line (it arrives with the write's result).
 - **Changes by another hand.** What the session does inside its own calls is its own. What changes between them — the
   owner, another session, a worker — is said once, in a line, at the next prompt (UserPromptSubmit) or call: commits,
@@ -103,7 +128,9 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   While a sub-agent runs (the host's Agent tool), the change line is silent — siblings' writes are the session's hands,
   and what they did becomes the session's when the Agent call ends.
 
-Each file once per session; a restart starts over. Paths follow the shell's directory; the cache is the project's, at
+Each file once per session; a restart, or a compaction, starts over (a compaction keeps where the session started).
+Hook cost on guin-site (73 sections, 500 commits): a prompt ~0.1 s, a search answer 0.1–0.5 s; on 4,868 sections the
+prompt match 0.44 s (a section's match keys are kept in the cache). An older cache is brought up to date without blame. Paths follow the shell's directory; the cache is the project's, at
 its root. All silent in a worker session (`AGENT_WORKER=1`) and outside a git work tree; under hunsu's probe
 (`HUNSU_SURVEY=1`) the session-start hook answers its standing text and nothing is written. Context only: never a
 permission decision, never a block.
@@ -122,11 +149,13 @@ of the project, e.g. `["content/"]` for a site's posts.
 
 | path | committed | what |
 |---|---|---|
-| `.jokbo/` | never (it ignores itself) | the cache: the index (`index.json`), where this machine last looked (`seen.json`), which files the edit hook already spoke of per session |
+| `.jokbo/` | never (it ignores itself) | the cache: the index (`index.json`), where this machine last looked (`seen.json`), per session where it started and what it was told (files, lines, quoted sections, answered searches) |
 
 ## Limits
 
-- Ranking finds shared words, not meaning: a section that speaks of a file only in other words is missed. Whether that
+- Ranking finds shared words, not meaning: a section that speaks of a file only in other words is missed — and a
+  question asked in other words than the documents' ("why does the site rebuild pages?" against "읽기 경로 — 페이지를
+  어떻게 만드나") gets nothing at the prompt. Whether that
   gap needs embeddings or a wiki is measured in use, not assumed.
 - `find` over a declared `decision` read keeps the lines that share a word and their neighbours; the product's own
   command prints the whole.

@@ -199,7 +199,9 @@ def test_the_session_start_line_is_a_map_and_what_changed_since_this_machine_loo
     with Repo() as r:
         code, out = hook("session_start.py", {"cwd": r.dir})
         ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        assert "what this project holds, and how to ask" in ctx and "plan/PLAN.md (3)" in ctx and "find WORDS" in ctx, ctx
+        assert "what this project holds, and how to ask" in ctx and "find WORDS" in ctx, ctx
+        # the documents as a reader scans them: headings with line ranges, a lone top heading as the title (guin-site 10-08)
+        assert "plan/PLAN.md — Plan (3 section(s)):\n    5-12  Q-feed — the front page\n    13-16  Q-tags — tagging" in ctx, ctx
         assert "commit(s) since" not in json.loads(hook("session_start.py", {"cwd": r.dir})[1])["hookSpecificOutput"]["additionalContext"], "nothing new"
         write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-about\n\nOne page about the author.\n")
         r.git("commit", "-qam", "about page")
@@ -315,7 +317,8 @@ def test_the_first_look_at_a_file_is_when_it_is_told_and_its_edit_is_not_told_ag
         assert hook("pre_tool.py", edit) == (0, ""), "told at the read: not again at the edit"
         assert "Q-tags" in json.loads(hook("post_tool.py", dict(read, tool_input={"file_path": r.p("src/tags.ts")}, tool_name="Read"))[1])["hookSpecificOutput"]["additionalContext"]
         assert hook("post_tool.py", dict(read, tool_input={"command": "ls src && git status"})) == (0, ""), "no file shown: silent"
-        assert hook("post_tool.py", dict(read, session_id="r2", tool_input={"command": "grep -rn feed src"})) == (0, ""), "a directory search is not a look at one file"
+        searched = json.loads(hook("post_tool.py", dict(read, session_id="r2", tool_input={"command": "grep -rn feed src"}))[1])["hookSpecificOutput"]["additionalContext"]
+        assert "jokbo — src/" not in searched and "where the project speaks of: feed" in searched, "a directory search is not a look at one file: it is a question"
 
 
 def test_the_shell_directory_is_followed_and_the_project_root_kept():
@@ -414,6 +417,177 @@ def test_a_note_is_what_the_products_say_of_the_file_and_the_map_what_they_hold(
             assert "  netty: 2 concepts: feed, tag ; 1 open question" in jokbo.map_report(r.dir)
         finally:
             shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_a_prompt_about_what_the_documents_say_is_answered_and_talk_is_not():
+    """guin-site, 10-08 -> 10-11: three days, ~70 prompts, and the reader was never asked — the session grepped or answered
+    from memory. The prompt hook quotes what the documents already say when a prompt asks about it — strictly: the
+    sentence shares three of the prompt's words, two of them rare; "go on", a pasted log and a musing say nothing; a
+    section is quoted once per session."""
+    with Repo() as r:
+        write(r.p("plan/BACKEND.md"), "# Backend\n\n## Storage\n\nDrafts are kept in the database; nothing is published until the owner presses publish.\n\n"
+              "## Backup\n\nA nightly snapshot goes to the bucket at three in the morning.\n\n## Deploy\n\nPush to main and the worker is deployed.\n")
+        r.git("add", "-A")
+        r.git("commit", "-qm", "backend plan")
+        said, ids = jokbo.prompt_report(r.dir, "when does the nightly snapshot go to the bucket?")
+        assert ids == ["plan/BACKEND.md#Backup"] and "\u201cA nightly snapshot goes to the bucket at three in the morning.\u201d" in said[1], said
+        assert "find WORDS" in said[0]
+        for quiet in ("ㄱㄱ", "go ahead", "<pasted_content id=\"1\">nightly snapshot bucket morning</pasted_content id=\"1\"> what is this?",
+                      "tags feed posts written body title action"):
+            assert jokbo.prompt_report(r.dir, quiet) == ([], []), quiet
+        assert jokbo.prompt_report(r.dir, "when does the nightly snapshot go to the bucket?", told=ids) == ([], []), "once per session"
+        payload = {"cwd": r.dir, "session_id": "p1", "prompt": "when does the nightly snapshot go to the bucket?"}
+        hook("session_start.py", {"cwd": r.dir, "session_id": "p1", "source": "startup"})
+        assert "nightly snapshot" in json.loads(hook("prompt.py", payload)[1])["hookSpecificOutput"]["additionalContext"]
+        assert hook("prompt.py", payload) == (0, ""), "the same section is not quoted twice in a session"
+        assert jokbo.stem("페이지를") == "페이지" and jokbo.stem("만들어") == jokbo.stem("만들기") == "만들"
+
+
+def test_a_note_leaves_out_what_the_session_saw_happen_and_what_it_was_told_already():
+    """guin-site, 10-08 -> 10-11: 50 notes; 14 "last changed in run …" lines named a run the session had just closed, and
+    one concept's sentence came with eight files. A line naming what was committed since the session started is left out
+    (whatever product wrote it), a line is told once per session whichever file it comes with, and a file the documents
+    name outright gets one pointer to `file`. A compaction keeps where the session started."""
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            write(os.path.join(plug, "note.py"), "import sys, subprocess\nrun = open(sys.argv[2]).read().strip()\n"
+                  "print('last changed in ' + run + ' (2026-10-11), task feed')\nprint('concept:feed — the front page, newest first')\n"
+                  "print('only for ' + sys.argv[1])\n")
+            write(os.path.join(plug, "run.txt"), "run-20260901-000000-0000")
+            write(r.p("hunsu.local.json"), {"links": {"netty": plug}})
+            write(r.p("hunsu.lock.json"), {"reads": {"netty": {"note": ["python3", "{plugin:netty}/note.py", "{path}", os.path.join(plug, "run.txt")]}}})
+            write(r.p("README.md"), r.read("README.md") + "\nThe front page is `src/feed.ts`.\n")
+            r.git("add", "-A")
+            r.git("commit", "-qm", "readme names the feed")
+            hook("session_start.py", {"cwd": r.dir, "session_id": "d1", "source": "startup"})
+            write(os.path.join(plug, "run.txt"), "run-20261011-010203-abcd")   # the session's own run, closed after it started
+            write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// newest first\n")
+            r.git("commit", "-qam", "run-20261011-010203-abcd: close — feed comment")
+            read = lambda f, sid="d1": hook("post_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Read", "tool_input": {"file_path": r.p(f)}})[1]
+            feed = json.loads(read("src/feed.ts"))["hookSpecificOutput"]["additionalContext"]
+            assert "last changed in" not in feed, "the session's own run is not news"
+            assert "concept:feed" in feed and "only for src/feed.ts" in feed and "more: `" in feed and "file src/feed.ts` — 1 document section(s) name it" in feed, feed
+            tags = json.loads(read("src/tags.ts"))["hookSpecificOutput"]["additionalContext"]
+            assert "concept:feed" not in tags and "only for src/tags.ts" in tags, "a line is told once per session"
+            hook("session_start.py", {"cwd": r.dir, "session_id": "d1", "source": "compact"})
+            again = json.loads(read("src/feed.ts"))["hookSpecificOutput"]["additionalContext"]
+            assert "concept:feed" in again and "last changed in" not in again, "after a compaction: told again, and the start kept"
+            other = json.loads(read("src/feed.ts", sid="d2"))["hookSpecificOutput"]["additionalContext"]
+            assert "last changed in run-20261011-010203-abcd" in other, "a session that never started here has no start: nothing left out"
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_a_history_search_in_the_shell_is_answered_once_per_target():
+    """guin-site, 10-10: the session ran `git log -- wrangler.worker.build.jsonc` and a grep to learn why a file existed;
+    `find` puts the commit that says so first. A search of the project's history or documents gets what the documents say
+    of that file or those words, once per target per session; a grep over another command's output searches nothing."""
+    with Repo() as r:
+        files = set(jokbo.index(r.dir)["files"])
+        assert jokbo.history_targets(r.dir, "git log --oneline -3 -- src/feed.ts | cat", files) == [("path", "src/feed.ts")]
+        assert jokbo.history_targets(r.dir, "git blame src/tags.ts", files) == [("path", "src/tags.ts")]
+        assert jokbo.history_targets(r.dir, "grep -rn \"tags\\|removed\" --include=*.md .", files) == [("terms", "tags removed")]
+        assert jokbo.history_targets(r.dir, "grep -n action plan/PLAN.md", files) == [("terms", "action")], "a grep over a document"
+        for nothing in ("git status | grep feed", "grep -rln 'at-31' .", "ls src", "grep -n feed src/feed.ts"):
+            assert jokbo.history_targets(r.dir, nothing, files) == [], nothing
+        bash = lambda c: hook("post_tool.py", {"cwd": r.dir, "session_id": "h1", "tool_name": "Bash", "tool_input": {"command": c}})[1]
+        out = json.loads(bash("grep -rn 'tags\\|removed' ."))["hookSpecificOutput"]["additionalContext"]
+        assert "where the project speaks of: tags removed" in out and "Tags live in `content/tags.jsonl`" in out, out
+        assert "what the documents say of src/feed.ts" in json.loads(bash("git log -3 -- src/feed.ts"))["hookSpecificOutput"]["additionalContext"]
+        assert bash("git log -5 -- src/feed.ts") == "", "once per target per session"
+
+
+def test_a_search_is_read_as_the_shell_reads_it_from_where_it_ran():
+    """Quotes come before pipes (`grep -E "a|b"` is one pattern; split first, it was skipped), git's own options are not
+    its subcommand, a blame's -L is not a path, and a path is where the command ran (`cd`, `git -C`, the shell's cwd: from
+    plan/, `../wrangler…` is the root's file). A command that cannot be a search loads no index; the host's Grep is one."""
+    with Repo() as r:
+        files = set(jokbo.index(r.dir)["files"])
+        t = lambda c, cwd=None: jokbo.history_targets(r.dir, c, files, cwd)
+        assert t('grep -rnE "tags|removed" .') == [("terms", "tags removed")]
+        assert t('rg "tags|removed"') == [("terms", "tags removed")]
+        assert t("git -C plan --no-pager log -- ../src/feed.ts") == [("path", "src/feed.ts")]
+        assert t("git -c core.pager=cat log -p src/feed.ts") == [("path", "src/feed.ts")], "git log P without --"
+        assert t("git blame src/tags.ts -L 1,5") == [("path", "src/tags.ts")]
+        assert t("git log -- ../src/feed.ts", cwd=r.p("plan")) == [("path", "src/feed.ts")]
+        assert t("cd plan && git log -- PLAN.md") == [("path", "plan/PLAN.md")]
+        assert t("git log -- README.md", cwd=r.p("plan")) == [], "plan/README.md is not the root's"
+        assert t("git log -n 5 main") == [] and t('grep -rn "unterminated') == []
+        os.remove(r.p(".jokbo/index.json"))
+        assert jokbo.searched(r.dir, "g0", "ls -la && cat README.md") == [] and not os.path.exists(r.p(".jokbo/index.json")), \
+            "a command that cannot be a search costs no index"
+        grep = {"cwd": r.dir, "session_id": "g1", "tool_name": "Grep", "tool_input": {"pattern": "tags|removed", "path": r.dir}}
+        out = json.loads(hook("post_tool.py", grep)[1])["hookSpecificOutput"]["additionalContext"]
+        assert "where the project speaks of: tags removed" in out, out
+
+
+def test_a_note_line_is_dated_by_run_ids_and_commits_not_by_any_token_with_a_digit():
+    """A commit subject holding python3, a /Users/someone-3/ path or 2026-10-11 once dropped every note line that held the
+    same token. A line is dated by a commit's hash and by names with four digits or more that are not a plain date."""
+    names = jokbo.names_in("run-20261010-132224-0b9a: close; python3 /Users/someone-3/x 2026-10-11 2026-10-11T09:30Z 1.16.0 at-59")
+    assert names == {"run-20261010-132224-0b9a"}, names
+
+
+def test_a_wrapped_line_stays_in_its_sentence():
+    """A continuation that starts with **bold**, -1 or 2026.10.11 is not a list item: cut there, the quote began mid-sentence
+    with a stray `*every**`. A table row is still its own sentence."""
+    text = "The page is rebuilt when\n**every** post changes, and the\n-1 offset is kept until\n2026.10.11 when it stops.\n\n| a | row that says a thing |\n- an item that is a list item"
+    got = jokbo.sentences(text)
+    assert got[0] == "The page is rebuilt when **every** post changes, and the -1 offset is kept until 2026.10.11 when it stops.", got
+    assert "| a | row that says a thing |" in got and "an item that is a list item" in got, got
+
+
+def test_a_prompt_is_matched_on_its_prose_not_a_pasted_command_and_nouns_keep_their_stem():
+    """A trial prompt quoted a command (`python3 … | head -3`) and asked about the read path; the test runner's sentence
+    was quoted on python3/head. A command line typed inline is not the question; a backquoted name is. 화면 and 로고 are
+    nouns (cut to 화·로 they matched nothing), and OG/S3 are words of two letters."""
+    w = jokbo.prompt_words("이 명령 실행해: C=~/.cache; python3 $C/x/*/x.py --help | head -3 그리고 `site-build` 화면 로고 OG 이미지")
+    for gone in ("python3", "head", "cache", "help"):
+        assert gone not in w, (gone, w)
+    for kept in ("site", "build", "화면", "로고", "og"):
+        assert kept in w, (kept, w)
+    assert jokbo.prompt_words("run `python3 tests/run.py --all` please") == ["run", "please"]
+    with Repo() as r:
+        write(r.p("plan/META.md"), "# Meta\n\n## Preview\n\nThe OG image is drawn per post at build time with the title.\n\n## Other\n\nNothing here about it.\n")
+        r.git("add", "-A")
+        r.git("commit", "-qm", "meta")
+        said, ids = jokbo.prompt_report(r.dir, "how is the OG image drawn per post?")
+        assert ids == ["plan/META.md#Preview"], said
+
+
+def test_an_older_cache_is_brought_up_to_date_without_blame():
+    """INDEX_FORMAT 6 adds a heading's level and a section's match keys; a full rebuild blames every document and, on a
+    large project, outran the hooks' timeout. An older cache keeps its blame and gains the rest from the files."""
+    with Repo() as r:
+        built = jokbo.index(r.dir)
+        old = json.load(io.open(r.p(".jokbo/index.json"), encoding="utf-8"))
+        old["format"] = 5
+        old.pop("keyed")
+        for e in old["entries"].values():
+            e.pop("keyed", None)
+            for sec in e.get("sections", []):
+                sec.pop("level")
+                sec.pop("keys")
+                sec["changed"] = 12345   # blame's answer, kept: not recomputed
+        jokbo.save(r.p(".jokbo/index.json"), old)
+        up = jokbo.index(r.dir)
+        assert up["format"] == jokbo.INDEX_FORMAT and all(x["changed"] == 12345 for x in up["sections"]), "blame was not run again"
+        assert [(x["level"], x["keys"]) for x in up["sections"]] == [(x["level"], x["keys"]) for x in built["sections"]]
+
+
+def test_a_compaction_does_not_tell_the_session_its_own_commits():
+    """A compaction comes mid-answer, before the Stop that marks where this machine looked: what was committed since is
+    the session's own work, not news."""
+    with Repo() as r:
+        hook("session_start.py", {"cwd": r.dir, "session_id": "c1", "source": "startup"})
+        hook("stop.py", {"cwd": r.dir, "session_id": "c1"})
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\nMore.\n")
+        r.git("commit", "-qam", "the session's own commit")
+        said = lambda sid, src: json.loads(hook("session_start.py", {"cwd": r.dir, "session_id": sid, "source": src})[1])["hookSpecificOutput"]["additionalContext"]
+        out = said("c1", "compact")
+        assert "the session's own commit" not in out and "jokbo — what this project holds" in out, out
+        assert "the session's own commit" in said("c2", "startup")
 
 
 def test_find_answers_with_the_sentence_not_only_where():

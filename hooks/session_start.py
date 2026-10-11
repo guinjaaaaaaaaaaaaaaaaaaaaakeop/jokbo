@@ -1,7 +1,10 @@
 """SessionStart — the map: what this project holds and how to ask (frozen for the session), and, in brief, what changed
 since this machine last looked (marked when an answer ends, so a session's own work is not news). Starts the session's
 state over: a file told before a restart is told again (1.2.0 carried 1.1.0's list over a restart and never spoke of the
-files most edited). Under hunsu's probe (HUNSU_SURVEY=1): its standing text, nothing written."""
+files most edited). Also after a compaction — the summary keeps none of the map, and a session in guin-site (10-08 → 10-11)
+compacted four times without it; a sub-agent can still be running then, so its count is kept, and so is where the
+session started (the notes leave out what was committed since). Under hunsu's probe
+(HUNSU_SURVEY=1): its standing text, nothing written."""
 import os
 import sys
 
@@ -28,11 +31,14 @@ def main():
         head = (jokbo.git(target, "rev-parse", "HEAD") or "").strip()
         if not seen.get("head"):
             jokbo.mark_seen(target)
-        elif seen["head"] != head:
+        elif seen["head"] != head and p.get("source") != "compact":   # a compaction comes mid-answer: what changed is the session's own
             lines += jokbo.since_report(target, seen["head"], brief=True)
-        jokbo.remember(target, p.get("session_id"), reset=True)
-        jokbo.agents_in_flight(target, p.get("session_id"), reset=True)
-    except SystemExit:
+        st = jokbo.remember(target, p.get("session_id"), reset=True, keep=("start",) if p.get("source") == "compact" else ())
+        if not st.get("start") and head:   # where this session started: what is committed after it is the session's own news
+            st["start"] = head
+            jokbo.save(jokbo.session_state(target, p.get("session_id"))[1], st)
+        jokbo.agents_in_flight(target, p.get("session_id"), reset=p.get("source") != "compact")
+    except (SystemExit, OSError):
         return 0
     _common.say("SessionStart", lines)
     return 0

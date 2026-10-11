@@ -39,7 +39,7 @@ def main():
                 if full.startswith(target + os.sep):
                     rels.append(os.path.relpath(full, target).replace(os.sep, "/"))
         lines += jokbo.tell(target, rels, p.get("session_id"), "write")
-    except SystemExit:
+    except (SystemExit, OSError):
         return 0
     _common.say("PreToolUse", lines)
     return 0

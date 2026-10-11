@@ -1,5 +1,7 @@
-"""UserPromptSubmit — what another hand changed while the session waited (the owner, another session, a worker): a line,
-before the session reads the prompt. Nothing changed: nothing said."""
+"""UserPromptSubmit — before the session reads the prompt: what another hand changed while it waited (the owner, another
+session, a worker), a line; and, when the prompt asks about something the project's documents already say, up to three of
+their sentences, quoted (prompt_report — strict: most prompts get nothing). Each section is quoted once per session.
+Nothing to say: nothing said."""
 import sys
 import os
 
@@ -16,8 +18,14 @@ def main():
         st, _ = jokbo.session_state(target, p.get("session_id"))
         now = jokbo.snapshot(target)
         lines = jokbo.change_report(target, st.get("last"), now) if st.get("last") and not jokbo.agents_in_flight(target) else []
-        jokbo.remember(target, p.get("session_id"), now)
-    except SystemExit:
+        st = jokbo.remember(target, p.get("session_id"), now)
+        said, ids = jokbo.prompt_report(target, p.get("prompt") or "", told=st.get("quoted", []))
+        if ids:
+            st, path = jokbo.session_state(target, p.get("session_id"))   # read again: a sub-agent's hooks may have written meanwhile
+            st["quoted"] = st.get("quoted", []) + [i for i in ids if i not in st.get("quoted", [])]
+            jokbo.save(path, st)
+            lines += said
+    except (SystemExit, OSError):
         return 0
     _common.say("UserPromptSubmit", lines)
     return 0

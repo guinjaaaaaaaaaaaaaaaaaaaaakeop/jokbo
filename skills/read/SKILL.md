@@ -9,6 +9,6 @@ The engine is `jokbo.py` at this plugin's root: `python3 <plugin root>/jokbo.py 
 - **What changed**: `since` (since this machine last looked) or `since REV`.
 - **Everything that stands on a file**: `file PATH` — the sections that speak of it with how current each is, who last changed it, and what each declared `file` read says.
 
-The session-start map and the one-line notes at a file's first look come from the hooks; they are pointers and facts, not the whole answer — ask when the question is yours. What a declared read prints is that product's word; jokbo's ranking is shared words, confirmed by nobody: say which you relied on.
+The session-start map (each document's headings with line ranges — read a section by its range), the one-line notes at a file's first look, the sentences quoted at a prompt when the documents already speak of it, and the answer added after a `git log -- PATH` or a recursive grep come from the hooks; they are pointers and facts, not the whole answer — ask when the question is yours. A question about the project's past (what was decided, why a file exists, what a setting is for) is `find` before `grep`: grep finds the string, `find` finds the sentence that says it and the commit that did it. What a declared read prints is that product's word; jokbo's ranking is shared words, confirmed by nobody: say which you relied on.
 
 jokbo reads; it never edits the project. `.jokbo/` is a cache: never commit it.

@@ -19,6 +19,7 @@ marked. jokbo never decides and never becomes a source: `.jokbo/` is a cache (ig
 """
 import argparse
 import collections
+import functools
 import hashlib
 import io
 import json
@@ -32,7 +33,9 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 5
+INDEX_FORMAT = 6
+MIGRATES = (5,)    # an index of these formats is brought up to date entry by entry, without blame (5 lacked `level`, `keys`)
+KEYED = 2          # how a section's match keys are cut (stem, section_keys): a change re-keys the cache, without blame
 PY = "python3" if shutil.which("python3") else "python"
 DOC_EXT = (".md", ".markdown")
 CODE_EXT = (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".astro", ".vue", ".svelte", ".css", ".scss", ".html", ".sql",
@@ -268,10 +271,10 @@ def sections_of(path, text):
             if cur:
                 cur["end"] = i - 1
                 out.append(cur)
-            cur = {"file": path, "heading": h.group(2).strip(), "start": i, "lines": [line]}
+            cur = {"file": path, "heading": h.group(2).strip(), "level": len(h.group(1)), "start": i, "lines": [line]}
         else:
             if cur is None:
-                cur = {"file": path, "heading": "", "start": 1, "lines": []}
+                cur = {"file": path, "heading": "", "level": 0, "start": 1, "lines": []}
             cur["lines"].append(line)
     if cur:
         cur["end"] = len(lines)
@@ -391,7 +394,7 @@ def build_index(target, previous=None):
             continue
         key = content_key(target, f, last.get(f), f in dirty) + (" " + names_key if is_doc else "")
         if old.get(f, {}).get("key") == key:
-            entries[f] = old[f]
+            entries[f] = upgrade(target, f, old[f])
             continue
         text = read_text(target, f)
         if is_doc:
@@ -402,26 +405,43 @@ def build_index(target, previous=None):
                 lt = [times.get(i) for i in range(sec["start"], min(sec["end"], end) + 1)]
                 sec["changed"] = None if f in dirty and any(t is None for t in lt) else max([t for t in lt if t] or [0]) or None
                 sec["words"] = words(sec["heading"] + " " + sec["text"])
+                sec["keys"] = section_keys(sec["words"], sec["text"])
                 # the files it names outright — by path, or by a file name only one file has
                 sec["names"] = sorted(g for g in files if g != f and (g in sec["text"] or (base[os.path.basename(g)] == 1 and len(os.path.basename(g)) > 4
                                       and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(g)) + r"(?![\w-])", sec["text"]))))
                 del sec["text"]   # read from the file when shown: the cache keeps positions, the document keeps its words
                 secs.append(sec)
-            entries[f] = {"key": key, "sections": secs}
+            entries[f] = {"key": key, "sections": secs, "keyed": KEYED}
         else:
             said = code_words(f, text)
             for w in said:
                 w["words"] = words(w["text"])
             entries[f] = {"key": key, "said": said}
-    return {"format": INDEX_FORMAT, "key": tree_key(target), "built": int(time.time()), "by": "jokbo %s" % version(),
+    return {"format": INDEX_FORMAT, "keyed": KEYED, "key": tree_key(target), "built": int(time.time()), "by": "jokbo %s" % version(),
             "files": files, "entries": entries, "commits": commits}
+
+
+def upgrade(target, f, entry):
+    """An entry of an older index format, its file unchanged since: what the new format adds, from the file as it is —
+    a heading's level and a section's match keys. Blame, the costly part, is kept (a full rebuild of a large project
+    outran the hooks' timeout, so every hook would have been killed until one finished)."""
+    if not entry.get("sections") or entry.get("keyed") == KEYED:
+        return entry
+    lines = read_text(target, f).split("\n")
+    for sec in entry["sections"]:
+        if "level" not in sec:
+            h = re.match(r"(#{1,6})\s", lines[sec["start"] - 1]) if sec.get("heading") and 0 < sec["start"] <= len(lines) else None
+            sec["level"] = len(h.group(1)) if h else (1 if sec.get("heading") else 0)
+        sec["keys"] = section_keys(sec.get("words") or [], "\n".join(lines[sec["start"] - 1:sec["end"]]))
+    entry["keyed"] = KEYED
+    return entry
 
 
 def index(target, rebuild=False):
     path = os.path.join(cache_dir(target), "index.json")
     idx = load(path)
-    if rebuild or idx.get("format") != INDEX_FORMAT or idx.get("key") != tree_key(target):
-        idx = build_index(target, None if rebuild or idx.get("format") != INDEX_FORMAT else idx)
+    if rebuild or idx.get("format") != INDEX_FORMAT or idx.get("keyed") != KEYED or idx.get("key") != tree_key(target):
+        idx = build_index(target, None if rebuild or idx.get("format") not in (INDEX_FORMAT,) + MIGRATES else idx)
         save(path, idx)
     entries = idx["entries"]   # the flat views every query ranks over, derived on load, never stored twice
     idx["sections"] = [x for f in sorted(entries) for x in entries[f].get("sections", [])]
@@ -819,7 +839,11 @@ def changed_sections(target, idx, rev):
 def sentences(text):
     """A section's sentences: Markdown marks stripped, cut at sentence ends and line breaks."""
     out = []
-    for block in re.split(r"\n\s*\n|\n(?=\s*(?:[-*+]|\d+\.)\s)", text):
+    for block in re.split(r"\n\s*\n|\n(?=\s*(?:(?:[-*+]|\d+\.)\s|\|))", text):
+        if block.strip().startswith("|"):   # a table row says one thing: joined with its neighbours it was a blob nobody could quote
+            if not re.fullmatch(r"[|\s:-]+", block.strip()) and len(block.strip()) > 15:
+                out.append(re.sub(r"\s+", " ", block.strip()))
+            continue
         block = re.sub(r"^\s*(?:#+|[-*+]|\d+\.)\s*", "", block.strip()).replace("\n", " ")
         for sent in re.split(r"(?<=[.!?。])\s+(?=\S)|(?<=다\.)\s+", block):
             sent = sent.strip()
@@ -902,17 +926,61 @@ def engine_path():
     return os.path.join(HERE, "jokbo.py").replace(os.sep, "/")
 
 
+MAP_HEADINGS = 40   # heading lines the map gives, across documents; the rest are counted
+MAP_PER_DOC = 14    # a long document shows its top-level sections only, at most this many
+
+
+def outline(secs, budget):
+    """A document's sections as a reader scans them — heading and line range — the shape a session built itself at its
+    first question (`grep -n "^#" plan/BACKEND.md plan/PLAN.md`, guin-site 10-08) and then read by `sed -n` ranges. A lone
+    top heading is the document's title, not a section. A long document shows its higher levels only (each range runs to
+    the next heading as high), within `budget` lines. ([lines], title, how many headings were left out)."""
+    heads = [x for x in secs if x.get("heading")]
+    if not heads:
+        return [], None, 0
+    end = max(x["end"] for x in secs)
+    lv = lambda x: x.get("level") or 1
+    title = None
+    tops = [x for x in heads if lv(x) == min(lv(y) for y in heads)]
+    if len(tops) == 1 and tops[0] is heads[0] and len(heads) > 1:
+        title, heads = heads[0]["heading"], heads[1:]
+    levels = sorted({lv(x) for x in heads})
+    top = levels[0]
+    for L in levels:
+        if sum(1 for x in heads if lv(x) <= L) <= MAP_PER_DOC:
+            top = L
+    shown = [x for x in heads if lv(x) <= top][:max(0, min(budget, MAP_PER_DOC))]
+    out = []
+    for x in shown:
+        nxt = next((y["start"] for y in heads if y["start"] > x["start"] and lv(y) <= lv(x)), end + 1)
+        h = x["heading"] if len(x["heading"]) <= 70 else x["heading"][:70] + " …"
+        out.append("    %d-%d  %s" % (x["start"], nxt - 1, h))
+    return out, title, len(heads) - len(shown)
+
+
 def map_report(target):
-    """What this project holds and how to ask — not the content. Said once at session start and frozen for the session (a
-    map rewritten mid-session breaks the prompt cache and says things twice): the documents and how many sections each
-    has, a line from each product that declares a `map` read, and the three questions jokbo answers."""
+    """What this project holds and how to ask — not the content. Said at session start (and after a compaction) and frozen
+    for the session (a map rewritten mid-session breaks the prompt cache and says things twice): the documents with their
+    sections' headings and line ranges, a line from each product that declares a `map` read, and the three questions jokbo
+    answers."""
     idx = index(target)
-    per_doc = collections.Counter(s["file"] for s in idx["sections"])
+    by_doc = collections.OrderedDict()
+    for x in idx["sections"]:
+        by_doc.setdefault(x["file"], []).append(x)
+    order = sorted(by_doc, key=lambda f: (-len(by_doc[f]), f))
     lines = ["jokbo — what this project holds, and how to ask:"]
-    if per_doc:
-        docs = ["%s (%d)" % (f, n) for f, n in per_doc.most_common(6)]
-        more = len(per_doc) - len(docs)
-        lines.append("  documents (sections): %s%s" % (", ".join(docs), ", +%d more" % more if more > 0 else ""))
+    budget, rest = MAP_HEADINGS, []
+    for f in order:
+        shown, title, hidden = outline(by_doc[f], budget) if budget > 0 else ([], None, 0)
+        if not shown:
+            rest.append("%s (%d)" % (f, len(by_doc[f])))
+            continue
+        lines.append("  %s%s (%d section(s)%s):" % (f, " — " + title if title else "", len(by_doc[f]),
+                                                   ", %d deeper or later not shown" % hidden if hidden else ""))
+        lines.extend(shown)
+        budget -= len(shown)
+    if rest:
+        lines.append("  other documents (sections): %s" % ", ".join(rest[:8]) + (", +%d more" % (len(rest) - 8) if len(rest) > 8 else ""))
     for plugin, text, why in overlay(target, "map", {}):
         if text and text.strip():
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
@@ -945,6 +1013,296 @@ def note_report(target, path):
                 else freshness(s, file_changed(target, path) if exists else None)
             lines.append("  %s (%s): \u201c%s\u201d" % (s["id"], fresh, said))
     return ["jokbo — %s:" % path] + lines if lines else []
+
+
+# ---------------------------------------------------------------- what a prompt asks that the project already says
+
+JOSA = sorted("에서는 으로는 에게서 이라는 이라고 라는 라고 에서 에게 으로 까지 부터 처럼 보다 이나 이랑 하고 에는 과는 와는 "
+              "은 는 이 가 을 를 의 에 로 와 과 도 만".split(), key=len, reverse=True)
+ENDINGS = sorted("었는데 았는데 습니다 니다 어요 아요 해요 했다 한다 하는 하게 하면 해서 했어 해야 어서 아서 으면 는데 지만 었다 았다 "
+                 "던 어 아 기 고 면 게 는 을 다 야 요 함 음 됨".split(), key=len, reverse=True)
+TALK = set("""것 것이 것은 것도 가지 지금 이제 그러 그러면 그렇다 그런데 혹시 어떻 어떤 무슨 있 없 하 되 같 같이 다른 이런 그런 저런
+이건 그건 아니 좋 진행 필요 가능 정도 경우 때문 그냥 아직 이미 많이 조금 너무 우선 결과 현재 내가 나는 우리 여기 거기 저기 위에 중에
+전에 다음 부분 전체 하나 생각 말고 거의 굳이 완전히 방향 문제 설명 이해 알아 알려 해줘 해주 보여 보여주 사용 쓰 쓰는 쓰면 어차피 아무것
+그리 그대 있는 없는 되는 있다 없다 된다 있어 없어 되어 됐다 하고 해도 했던 하던 있고 없고 되고 보고 쓰고 보는 했는 하는지
+평소 이상 정말 진짜 사실 일단 바로 먼저 나중 계속 항상 자꾸 얼마 언제 어디 누가 무엇 어느 이거 저거 그거 이게 그게 저게 아무 모든 여러
+모두 전부 뭔가 어쩌면 아마 혹은 또는 그리고 그래서 하지만 그러나 근데 그럼 그러니까 따라서 이번 지난 오늘 내일 어제 방금 아까 방법 com
+www http https what how why when where which there their about would could should""".split())
+PROMPT_RARE = 0.15   # a word in at most this share of the sections tells them apart
+PROMPT_SHARED = 3    # words a quoted sentence shares with the prompt, at least
+PROMPT_TOLD = 3      # sentences told for one prompt, at most
+
+
+@functools.lru_cache(maxsize=None)
+def stem(t):
+    """A Korean word without its particles and one verbal ending — the key the prompt and the documents are matched on (a
+    question says 만들어·페이지를, a plan 만들기·페이지). Both sides are cut the same way, so a rough cut still meets. A cut
+    that would leave one syllable is not made: 화면, 로고 and 사고 are nouns, not 화·로·사 with an ending (a one-syllable key
+    said nothing and was dropped, so the noun never matched). Other scripts are left as they are. Cached: a large project's
+    sections hold millions of tokens over a few thousand words."""
+    if t.isascii():
+        return t
+    while True:
+        j = next((j for j in JOSA if t.endswith(j) and len(t) - len(j) >= 2), None)
+        if not j:
+            break
+        t = t[:-len(j)]
+    e = next((e for e in ENDINGS if t.endswith(e) and len(t) - len(e) >= 2), None)
+    return t[:-len(e)] if e else t
+
+
+ACRONYM = re.compile(r"(?<![A-Za-z0-9])[A-Z][A-Z0-9](?![A-Za-z0-9])")   # OG, S3: two letters `words` leaves out
+
+
+def section_keys(ws, text):
+    """What a prompt is matched on in a section, kept in the index: its words' stems and its two-letter acronyms."""
+    return sorted({stem(t) for t in ws} | {a.lower() for a in ACRONYM.findall(text)})
+
+
+SHELL_STRONG = re.compile(r"\$|^(?:\|\|?|&&|>>?|2>&1|<)$|^--\w|^\w+=\S|^~/")   # a token only a command line has
+SHELL_WEAK = re.compile(r";$|^-\w")
+
+
+def prose(text):
+    """What the person wrote, without what they pasted: <pasted_content> blocks, fenced code, a backquoted command, and a
+    command line typed inline (a run of ASCII tokens holding a pipe, a $VAR, a --flag, VAR=…) — the words of a command are
+    not the question (a trial prompt that asked about the read path and quoted a `python3 … | head` line was answered with
+    the test runner's sentence). A backquoted single name (`site-build`) is the person's word and stays."""
+    text = re.sub(r"<pasted_content[^>]*>.*?</pasted_content[^>]*>", " ", text or "", flags=re.S)
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)
+    text = re.sub(r"`([^`\n]*)`", lambda m: " " if re.search(r"\s", m.group(1).strip()) else " %s " % m.group(1), text)
+    out = []
+    for line in text.split("\n"):
+        keep, run = [], []
+        for t in line.split() + [None]:
+            if t is not None and t.isascii():
+                run.append(t)
+                continue
+            if not (any(SHELL_STRONG.search(x) for x in run) or sum(bool(SHELL_WEAK.search(x)) for x in run) >= 2):
+                keep += run
+            run = []
+            if t is not None:
+                keep.append(t)
+        out.append(" ".join(keep))
+    return "\n".join(out)
+
+
+def prompt_words(text):
+    """The words of what the person typed (prose: what they pasted or quoted as a command is not the question); talk (지금, 혹시, 어떻게 …) and one-syllable remainders say nothing about the project."""
+    text = prose(text)
+    out = []
+    for t in words(text) + [a.lower() for a in ACRONYM.findall(text)]:
+        t = stem(t)
+        if t not in TALK and (t.isascii() or len(t) >= 2) and not re.fullmatch(r"[ㄱ-ㆎ]+", t) and t not in out:
+            out.append(t)
+    return out
+
+
+def prompt_report(target, text, told=()):
+    """When a prompt asks about something the project's documents already say: up to PROMPT_TOLD sentences, quoted, each
+    with where it is and how current — said before the session reads the prompt, which is when a question arises (guin-site,
+    10-08 → 10-11: the reader was never asked in three days; the session went to grep, or answered from memory). Strict:
+    a sentence is told only when it shares PROMPT_SHARED of the prompt's words, two of them rare in the documents (in at
+    most PROMPT_RARE of the sections), and three rare ones or 40% of the prompt's rare words, and never under 20% of them —
+    so a long musing that brushes many sections, and "ㄱㄱ", say nothing. Silence is the common case. `told`: sections already quoted this
+    session. ([lines], [section ids told])."""
+    idx = index(target)
+    secs = idx["sections"]
+    if not secs:
+        return [], []
+    keys = [set(x.get("keys") or ()) for x in secs]
+    df = collections.Counter(t for k in keys for t in k)
+    n = len(secs)
+    q = [t for t in prompt_words(text) if df.get(t)]
+    rare = {t for t in q if df[t] / n <= PROMPT_RARE}
+    if len(rare) < 2:
+        return [], []
+    cand = []
+    for i, k in enumerate(keys):
+        m = set(q) & k
+        if len(m) >= PROMPT_SHARED and len(m & rare) >= 2 and secs[i]["id"] not in told:
+            cand.append((sum(math.log(1 + n / (1 + df[t])) for t in m), i))
+    out, ids = [], []
+    for _, i in sorted(cand, reverse=True)[:8]:
+        x = secs[i]
+        body = read_text(target, x["file"]).split("\n")[x["start"] - 1:x["end"]]
+        best, key = None, (0, 0)
+        for sent in sentences("\n".join(body[1:] if x.get("heading") else body)):
+            sk = set(section_keys(words(sent), sent))
+            shared, shared_rare = set(q) & sk, set(q) & sk & rare
+            if len(shared) >= PROMPT_SHARED and len(shared_rare) >= max(2, 0.2 * len(rare)) and (len(shared_rare) >= 3 or len(shared_rare) >= 0.4 * len(rare)) \
+                    and (len(shared_rare), len(shared)) > key:
+                best, key = sent, (len(shared_rare), len(shared))
+        if best:
+            said = best if len(best) <= QUOTE else best[:QUOTE].rstrip() + " …"
+            out.append("  %s (lines %d-%d, written %s): \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")), said))
+            ids.append(x["id"])
+        if len(out) >= PROMPT_TOLD:
+            break
+    if not out:
+        return [], []
+    return (["jokbo — the project already says (ranked by shared words, confirmed by nobody; `%s \"%s\" find WORDS` for more):"
+             % (PY, engine_path())] + out), ids
+
+
+# ---------------------------------------------------------------- what a shell command searches for
+
+OPS = {"|", "||", "&&", ";", "&", "(", ")", "|&", ";;"}
+REDIRECT = {">", ">>", "<", ">&", "&>", "<&", "&>>", ">|"}
+GIT_VALUED = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}   # git's own options that take a value
+BLAME_VALUED = {"-L", "-S", "--contents", "--ignore-rev", "--ignore-revs-file", "--since", "-C", "-M"}
+GREP_VALUED = {"-A", "-B", "-C", "-m", "--include", "--exclude", "--exclude-dir", "-g", "--glob", "-t", "--type", "-f", "--max-count",
+               "--context", "--after-context", "--before-context", "--type-not", "-T", "--iglob"}
+SEARCHING = re.compile(r"\bgit\b.*\b(?:log|blame)\b|(?:^|[\s;&|(])(?:e?grep|rg)\s")   # a command that may search: else no index is loaded
+
+
+def commands_of(command):
+    """A shell line as its simple commands: [(argv, piped)] — `piped` when it reads another command's output. Quotes are
+    taken first (`grep -E "a|b"` is one pattern, not a pipe); redirections and leading VAR=… are dropped. [] when it does
+    not parse."""
+    import shlex
+    try:
+        lex = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        tokens = list(lex)
+    except ValueError:
+        return []
+    out, argv, piped, skip = [], [], False, False
+    for t in tokens + [";"]:
+        if skip:
+            skip = False
+            continue
+        if t in REDIRECT:
+            if argv and argv[-1].isdigit():
+                argv.pop()
+            skip = True
+            continue
+        if t in OPS:
+            while argv and re.match(r"^\w+=", argv[0]):
+                argv = argv[1:]
+            if argv:
+                out.append((argv, piped))
+            argv, piped = [], t in ("|", "|&")
+            continue
+        argv.append(t)
+    return out
+
+
+def history_targets(target, command, files, cwd=None):
+    """What a shell command looks up in the project's history or documents: ("path", P) for `git log … -- P`, `git log P`,
+    `git blame P` (P a tracked file; git's own options such as -C DIR skipped); ("terms", T) for a recursive grep / rg,
+    or a grep over documents. A grep that filters another command's output (after a pipe) searches nothing of the
+    project. Paths are taken from where the command ran (`cd` and `git -C` followed). Terms are the pattern's words; a
+    pattern with none (`at-31`) is left to grep."""
+    out = []
+    here = cwd or target
+    for argv, piped in commands_of(command or ""):
+        if argv[0] == "cd":
+            here = os.path.normpath(os.path.join(here, os.path.expanduser(argv[1]))) if len(argv) > 1 else target
+            continue
+        if argv[0] == "git":
+            i, at = 1, here
+            while i < len(argv) and argv[i].startswith("-"):
+                if argv[i] == "-C" and i + 1 < len(argv):
+                    at = os.path.normpath(os.path.join(at, argv[i + 1]))
+                i += 2 if argv[i] in GIT_VALUED else 1
+            if i >= len(argv) or argv[i] not in ("log", "blame"):
+                continue
+            sub, rest = argv[i], argv[i + 1:]
+            if "--" in rest:
+                cands = rest[rest.index("--") + 1:]
+            else:
+                cands, j = [], 0
+                while j < len(rest):
+                    a = rest[j]
+                    if a.startswith("-"):
+                        j += 2 if sub == "blame" and a in BLAME_VALUED else 1
+                        continue
+                    cands.append(a)
+                    j += 1
+            for c in cands:
+                rel = relpath(target, os.path.join(at, c))
+                if rel in files:
+                    out.append(("path", rel))
+        elif os.path.basename(argv[0]) in ("grep", "egrep", "rg") and not piped:
+            opts = [a for a in argv[1:] if a.startswith("-")]
+            rec = os.path.basename(argv[0]) == "rg" or any(re.match(r"^-[a-zA-Z]*[rR]", o) or o == "--recursive" for o in opts)
+            args, pat, i = argv[1:], None, 0
+            while i < len(args):
+                a = args[i]
+                if a in ("-e", "--regexp") and i + 1 < len(args):
+                    pat = args[i + 1] if pat is None else pat + "|" + args[i + 1]
+                    i += 2
+                    continue
+                if a in GREP_VALUED and i + 1 < len(args):
+                    i += 2
+                    continue
+                if not a.startswith("-") and pat is None:
+                    pat = a
+                elif not a.startswith("-") and a.lower().endswith(DOC_EXT):
+                    rec = True   # a grep over a document is a search of what the project says
+                i += 1
+            terms = pattern_terms(pat)
+            if rec and terms:
+                out.append(("terms", terms))
+    return list(dict.fromkeys(out))
+
+
+def pattern_terms(pat):
+    """A search pattern's words, as `find` takes them: regex syntax is not a word."""
+    terms = [t for t in words(re.sub(r"\\[|bBwsdW]|[\^$.*+?()\[\]{}|\\]", " ", pat or "")) if t]
+    return " ".join(dict.fromkeys(terms))
+
+
+def history_report(target, kind, what):
+    """Brief: what the documents say of a file or of the words a search looked for — two sections with the sentence that
+    says it, and the commit whose subject says most (guin-site 10-10: `git log -- wrangler.worker.build.jsonc` was run to
+    learn why the file exists; `find` puts the commit that says so first)."""
+    idx = index(target)
+    if kind == "path":
+        q = words(what) + (words(read_text(target, what)) if is_text(target, what) else [])
+        secs = [x for x in idx["sections"] if what in x.get("names", ())][:2] or rank_sections(idx, q, about=what, top=2)
+        head = "jokbo — what the documents say of %s (`%s \"%s\" file %s` for all):" % (what, PY, engine_path(), what)
+        qq = q   # the sentence that shares the file's own words: its name alone is often not in the sentence that explains it
+    else:
+        q = qq = words(what)
+        secs = rank_sections(idx, q, top=2)
+        head = "jokbo — where the project speaks of: %s (`%s \"%s\" find %s` for all):" % (what, PY, engine_path(), what)
+    lines = []
+    for x in secs:
+        said = quote(target, idx, x, qq, least=2 if kind == "path" else 1)
+        if said:
+            lines.append("  %s (lines %d-%d, written %s): \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")), said))
+    if kind == "terms":
+        hits = rank_items([dict(c, words=words(c["subject"])) for c in idx["commits"]], q, 1)
+        lines += ["  commit %s %s — %s" % (when(c["at"]), c["sha"][:7], c["subject"][:200]) for c in hits]
+    return [head] + lines if lines else []
+
+
+SEARCHES = 2   # searches answered per command
+
+
+def searched(target, session_id, command=None, cwd=None, pattern=None):
+    """The history/document searches in a command (or the host's own Grep: `pattern`) that this session has not had
+    answered yet: told once per target. A command that cannot be a search costs nothing (no index is loaded)."""
+    if pattern is not None:
+        terms = pattern_terms(pattern)
+        found = [("terms", terms)] if terms else []
+    elif command and SEARCHING.search(command):
+        found = history_targets(target, command, set(index(target)["files"]), cwd)
+    else:
+        found = []
+    if not found:
+        return []
+    st, path = session_state(target, session_id)
+    done = st.get("searched", [])
+    lines = []
+    for kind, what in [f for f in found if "%s:%s" % f not in done][:SEARCHES]:   # the rest wait for the next search
+        lines += history_report(target, kind, what)
+        done.append("%s:%s" % (kind, what))
+    st["searched"] = done
+    save(path, st)
+    return lines
 
 
 def session_state(target, session_id):
@@ -1000,20 +1358,64 @@ def change_report(target, old, new):
     return lines
 
 
+DATED = re.compile(r"[A-Za-z0-9][\w.-]*\d[\w.-]*")   # a run id, a commit, a review: what a line can be dated by
+PLAIN_DATE = re.compile(r"\d{4}[-./]?\d{2}[-./]?\d{2}(?:[T ]?\d{2}(?::?\d{2}){0,2}Z?)?")
+
+
+def names_in(text):
+    """The names a line can be dated by: tokens of seven characters or more with four digits or more (run-20261010-132224-0b9a,
+    a review id) that are not a plain date. python3 or a /Users/someone-3/ path is not a name (a commit subject that held one
+    once dropped every line that did); a date is not one either (a subject with 2026-10-11 dropped every `written 2026-10-11`)."""
+    return {t for t in DATED.findall(text) if len(t) >= 7 and sum(c.isdigit() for c in t) >= 4 and not PLAIN_DATE.fullmatch(t)}
+
+
+def since_start(target, st):
+    """The names (run ids, commit hashes …) of what was committed since this session started: a note line naming one tells
+    the session what it did itself, or what the change line already said (guin-site 10-08 → 10-11: 14 of 45 "last
+    changed in run …" lines named a run the session had just closed). Product-agnostic: a line is dated by the names in it."""
+    start = st.get("start")
+    if not start:
+        return set()
+    log = git(target, "log", "--format=%h %H%x00%s", "%s..HEAD" % start, "--") or ""
+    out = set()
+    for l in log.splitlines():
+        shas, _, subject = l.partition("\0")
+        out |= set(shas.split()) | names_in(subject)
+    return out
+
+
 def tell(target, rels, session_id, why):
     """What a hook says about files the session reads or writes: each file once per session (whichever hook comes first),
-    at most FULL told, the rest named; a note, not a report (see note_report)."""
+    at most FULL told, the rest named; a note, not a report (see note_report). A line is told once per session, whichever
+    file it came with (the same concept's sentence came with eight files); a line about what was committed since the
+    session started is left out (since_start); and when documents name the file outright, one pointer to `file`."""
     st, path = session_state(target, session_id)
     shown = st.get("shown", [])
     rp = record_paths(target) + (".git/",)
     new = [r for r in rels if r not in shown and not r.startswith(rp) and os.path.isfile(os.path.join(target, r))]
     if not new:
         return []
+    told_lines = set(st.get("told", []))
+    recent = since_start(target, st)
     lines, told = [], []
     for rel in new[:FULL]:
-        lines.extend(note_report(target, rel))
         told.append(rel)
+        note = note_report(target, rel)
+        body = []
+        for l in note[1:]:
+            key = l.strip()
+            if key in told_lines or (recent and (names_in(l) | set(re.findall(r"\b[0-9a-f]{7,40}\b", l))) & recent):
+                continue
+            told_lines.add(key)
+            body.append(l)
+        if not body:
+            continue
+        naming = sum(1 for x in index(target)["sections"] if rel in x.get("names", ()))
+        if naming:
+            body.append("  more: `%s \"%s\" file %s` — %d document section(s) name it" % (PY, engine_path(), rel, naming))
+        lines += [note[0]] + body
     st["shown"] = shown + told
+    st["told"] = sorted(told_lines)
     save(path, st)
     return lines
 
@@ -1043,11 +1445,12 @@ def agents_in_flight(target, session_id=None, delta=0, reset=False):
     return sum(int(v.get("n", 0)) for v in st.values())
 
 
-def remember(target, session_id, snap=None, reset=False):
-    """Keep where the session's last call left the tree (so what changes between its calls is another hand's)."""
+def remember(target, session_id, snap=None, reset=False, keep=()):
+    """Keep where the session's last call left the tree (so what changes between its calls is another hand's). reset: the
+    session starts over (what it was told is told again), keeping `keep`."""
     st, path = session_state(target, session_id)
     if reset:
-        st = {}
+        st = {k: st[k] for k in keep if k in st}
     st["last"] = snap or snapshot(target)
     save(path, st)
     return st

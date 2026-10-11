@@ -2,7 +2,9 @@
 own, remembered as where the tree now stands (a failed call's writes were once told back as another hand's: the host
 fires PostToolUseFailure for it). An Agent call's end makes its sub-agent's work the session's. And at the first look at
 a file (Read; cat, head, tail, sed, awk, grep, rg, less, nl on a file), a line per fact that bears on it — this arrives
-before the next call is decided, which is before an edit."""
+before the next call is decided, which is before an edit. And when a shell command searched the project's history or
+documents (`git log -- PATH`, `git blame`, a recursive grep), what the documents say of that file or those words, once
+per target per session: the session asked jokbo's question with grep (guin-site, 10-10); the host's own Grep tool too."""
 import os
 import sys
 
@@ -32,7 +34,13 @@ def main():
         elif command is not None and jokbo.SHELL_READ.search(command):
             rels = jokbo.shell_files(target, p["cwd"], command, jokbo.index(target)["files"])[1]
         lines = jokbo.tell(target, rels, p.get("session_id"), "read")
-    except SystemExit:
+        if command is not None:
+            lines += jokbo.searched(target, p.get("session_id"), command, cwd=p["cwd"])
+        elif p.get("tool_name") == "Grep" and isinstance(inp.get("pattern"), str):
+            where = os.path.realpath(os.path.join(p["cwd"], inp.get("path") or "."))
+            if where == target or where.startswith(target + os.sep):
+                lines += jokbo.searched(target, p.get("session_id"), pattern=inp["pattern"])
+    except (SystemExit, OSError):   # a hook that cannot write its state says nothing; it never prints a traceback
         return 0
     _common.say("PostToolUse", lines)
     return 0
