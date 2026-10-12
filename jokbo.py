@@ -928,6 +928,7 @@ def engine_path():
 
 MAP_HEADINGS = 40   # heading lines the map gives, across documents; the rest are counted
 MAP_PER_DOC = 14    # a long document shows its top-level sections only, at most this many
+MAP_CHARS = 3000    # the whole map, at most: it is said at every session start, also to a one-prompt session
 
 
 def outline(secs, budget):
@@ -949,13 +950,26 @@ def outline(secs, budget):
     for L in levels:
         if sum(1 for x in heads if lv(x) <= L) <= MAP_PER_DOC:
             top = L
-    shown = [x for x in heads if lv(x) <= top][:max(0, min(budget, MAP_PER_DOC))]
+    room = max(0, min(budget, MAP_PER_DOC))
+    cands = [x for x in heads if lv(x) <= top]
+    if len(cands) > room:
+        # the newest sections are where the work is (guin-site 10-12: ATPROTO.md grew at its end, and the map showed its
+        # first fourteen): keep the most recently changed, in document order
+        recent = sorted(cands, key=lambda x: (x.get("changed") is None, x.get("changed") or 0, x["start"]), reverse=True)[:room]
+        shown = sorted(recent, key=lambda x: x["start"])
+    else:
+        shown = cands
     out = []
     for x in shown:
         nxt = next((y["start"] for y in heads if y["start"] > x["start"] and lv(y) <= lv(x)), end + 1)
         h = x["heading"] if len(x["heading"]) <= 70 else x["heading"][:70] + " …"
         out.append("    %d-%d  %s" % (x["start"], nxt - 1, h))
     return out, title, len(heads) - len(shown)
+
+
+def doc_recency(secs):
+    """When a document last changed: its newest section (one being edited counts as now)."""
+    return max((time.time() if x.get("changed") is None else x["changed"]) for x in secs)
 
 
 def map_report(target):
@@ -967,7 +981,7 @@ def map_report(target):
     by_doc = collections.OrderedDict()
     for x in idx["sections"]:
         by_doc.setdefault(x["file"], []).append(x)
-    order = sorted(by_doc, key=lambda f: (-len(by_doc[f]), f))
+    order = sorted(by_doc, key=lambda f: (-doc_recency(by_doc[f]), -len(by_doc[f]), f))   # where the work is, first
     lines = ["jokbo — what this project holds, and how to ask:"]
     budget, rest = MAP_HEADINGS, []
     for f in order:
@@ -976,7 +990,7 @@ def map_report(target):
             rest.append("%s (%d)" % (f, len(by_doc[f])))
             continue
         lines.append("  %s%s (%d section(s)%s):" % (f, " — " + title if title else "", len(by_doc[f]),
-                                                   ", %d deeper or later not shown" % hidden if hidden else ""))
+                                                   ", %d deeper or older not shown" % hidden if hidden else ""))
         lines.extend(shown)
         budget -= len(shown)
     if rest:
@@ -985,8 +999,14 @@ def map_report(target):
         if text and text.strip():
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
             lines.append("  %s: %s" % (plugin, " · ".join(l if len(l) <= 240 else l[:240] + " …" for l in first)))
-    lines.append("  ask: `%s \"%s\" find WORDS` — what was decided and where it is said, quoted; `since [REV]` — what changed; "
-                 "`file PATH` — all that stands on a file" % (PY, engine_path()))
+    ask = ("  ask: `%s \"%s\" find WORDS` — what was decided and where it is said, quoted; `since [REV]` — what changed; "
+           "`file PATH` — all that stands on a file" % (PY, engine_path()))
+    while sum(len(l) + 1 for l in lines) + len(ask) > MAP_CHARS:
+        heads = [i for i, l in enumerate(lines) if l.startswith("    ")]
+        if not heads:
+            break
+        del lines[heads[-1]]   # the least recent document's last heading goes first
+    lines.append(ask)
     return lines
 
 
@@ -1243,7 +1263,18 @@ def history_targets(target, command, files, cwd=None):
                     rec = True   # a grep over a document is a search of what the project says
                 i += 1
             terms = pattern_terms(pat)
-            if rec and terms:
+            # a search of what the project SAYS: a grep over documents (a document named, or --include of one). A recursive
+            # grep through code is a code search — 11 answers to those went uncited (guin-site 10-12)
+            ops = [a for a in args if not a.startswith("-") and a != pat]
+            docs = [f for f in files if f.lower().endswith(DOC_EXT)]
+
+            def holds_docs(a):
+                rel = relpath(target, os.path.join(here, a))
+                return a.lower().endswith(DOC_EXT) or rel in (".", "") or any(f.startswith(rel.rstrip("/") + "/") for f in docs)
+            on_docs = any(holds_docs(a) for a in (ops or ["."])) or \
+                any(re.search(r"--include=?\S*\.(?:md|markdown)\b", a) for a in args) or \
+                any(a in ("--type=md", "-tmd") for a in args) or ("-t" in args and "md" in args)
+            if rec and terms and on_docs:
                 out.append(("terms", terms))
     return list(dict.fromkeys(out))
 

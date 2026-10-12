@@ -87,8 +87,10 @@ nothing the agent did. Other harnesses that get used keep two shapes — somethi
 work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) — and jokbo follows them.
 
 - **SessionStart — the map.** What this project holds and how to ask, not the content: the documents with their
-  sections' headings and line ranges (a lone top heading is the title; a long document shows its higher levels; ~40
-  heading lines in all, the rest counted) — the index a session built itself with `grep -n "^#"` at its first question
+  sections' headings and line ranges (a lone top heading is the title; a long document shows its higher levels and,
+  when they are many, its most recently changed ones; the documents worked on last come first; ~40 heading lines and
+  about 3,000 characters in all, the oldest headings dropped first — guin-site's ATPROTO.md grew at its end, and the map
+  showed its first fourteen sections, not the ones being worked on) — the index a session built itself with `grep -n "^#"` at its first question
   and then read by `sed -n` ranges (guin-site 10-08) — a line from each product that declares a `map` read (e.g. the
   net's concepts and open questions), the three questions jokbo answers. Then, in brief, what changed since this machine
   last looked. Frozen for the session; said again after a compaction (the summary keeps none of it) — without the
@@ -114,7 +116,9 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   `file`. On guin-site's 10-08 → 10-11 notes: 107 lines → 43.
 - **PostToolUse — a search in the shell is answered.** `git log … [--] PATH`, `git blame PATH` (git's own options such
   as `-C DIR` skipped; the path taken from where the command ran — `cd`, `-C`, the shell's directory), a recursive grep or
-  rg (quotes read before pipes: `grep -E "a|b"` is one pattern), a grep over documents, the host's Grep tool: what the documents say of that file, or where the project speaks of
+  rg over a path that holds documents — the project root, `plan/`, a document named, `--include=*.md` — (quotes read
+  before pipes: `grep -E "a|b"` is one pattern); a grep through code only (`src/`) is a code search and is not answered
+  (guin-site 10-12: eleven such answers, none cited), the host's Grep tool: what the documents say of that file, or where the project speaks of
   those words (two sections, quoted, and for words the commit whose subject says most) — once per target per session,
   two per command. A command that cannot be a search loads nothing. A grep after a pipe filters output and searches nothing; a pattern with no words (`at-31`) is left
   to grep. (guin-site 10-10: `git log -- wrangler.worker.build.jsonc` to learn why the file exists; the plan's sentence

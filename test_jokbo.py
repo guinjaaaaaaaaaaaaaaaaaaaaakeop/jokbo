@@ -317,8 +317,10 @@ def test_the_first_look_at_a_file_is_when_it_is_told_and_its_edit_is_not_told_ag
         assert hook("pre_tool.py", edit) == (0, ""), "told at the read: not again at the edit"
         assert "Q-tags" in json.loads(hook("post_tool.py", dict(read, tool_input={"file_path": r.p("src/tags.ts")}, tool_name="Read"))[1])["hookSpecificOutput"]["additionalContext"]
         assert hook("post_tool.py", dict(read, tool_input={"command": "ls src && git status"})) == (0, ""), "no file shown: silent"
-        searched = json.loads(hook("post_tool.py", dict(read, session_id="r2", tool_input={"command": "grep -rn feed src"}))[1])["hookSpecificOutput"]["additionalContext"]
-        assert "jokbo — src/" not in searched and "where the project speaks of: feed" in searched, "a directory search is not a look at one file: it is a question"
+        assert hook("post_tool.py", dict(read, session_id="r2", tool_input={"command": "grep -rn feed src"})) == (0, ""), \
+            "a search through code is a code search: no answer, and not a look at one file (guin-site 10-12: 11 such answers, none cited)"
+        searched = json.loads(hook("post_tool.py", dict(read, session_id="r3", tool_input={"command": "grep -rn feed plan"}))[1])["hookSpecificOutput"]["additionalContext"]
+        assert "jokbo — plan/" not in searched and "where the project speaks of: feed" in searched, "a search of the documents is a question"
 
 
 def test_the_shell_directory_is_followed_and_the_project_root_kept():
@@ -618,6 +620,20 @@ def test_a_failed_call_and_a_sub_agents_work_are_the_sessions_own():
         assert jokbo.agents_in_flight(r.dir) == 1
         jokbo.save(r.p(".jokbo/agents.json"), {"lost": {"n": 1, "at": time.time() - jokbo.AGENT_STALE - 1}})
         assert jokbo.agents_in_flight(r.dir) == 0, "an Agent call with no end for hours does not silence the change line"
+
+
+def test_the_map_keeps_the_newest_sections_and_its_size():
+    """A document that grows at its end (guin-site's ATPROTO.md) showed its first fourteen sections and hid where the work
+    was. The map keeps each document's most recently changed sections, the most recent documents first, within a size."""
+    with Repo() as r:
+        body = "# Log\n\n" + "".join("## Step %02d\n\nold work number %d.\n\n" % (i, i) for i in range(1, 21))
+        write(r.p("plan/LOG.md"), body); r.git("add", "-A"); r.git("commit", "-qm", "log", env_date="2026-09-05T00:00:00Z")
+        write(r.p("plan/LOG.md"), body + "## Step 21 — the newest\n\nwhat the session works on now.\n")
+        r.git("commit", "-qam", "newest step", env_date="2026-09-06T00:00:00Z")
+        m = "\n".join(jokbo.map_report(r.dir))
+        assert "Step 21 — the newest" in m and "Step 01" not in m, m
+        assert m.index("plan/LOG.md") < m.index("plan/PLAN.md"), "the document worked on last comes first"
+        assert len(m) <= jokbo.MAP_CHARS + 400, len(m)
 
 
 if __name__ == "__main__":
