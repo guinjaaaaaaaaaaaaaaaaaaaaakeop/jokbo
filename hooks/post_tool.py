@@ -20,6 +20,7 @@ def main():
     lines = []
     try:
         jokbo.remember(target, p.get("session_id"))
+        jokbo.note_call(target, p.get("session_id"), p, ended=True)   # its plugin keeps working for the session a while after
         if p.get("tool_name") in jokbo.AGENT_TOOLS:
             jokbo.agents_in_flight(target, p.get("session_id"), -1)   # what its sub-agent did is now the session's
         if p.get("hook_event_name") == "PostToolUseFailure":

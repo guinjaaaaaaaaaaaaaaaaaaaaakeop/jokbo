@@ -35,18 +35,25 @@ hunsu.lock.json, or in hunsu.json (the project's own declaration, on top):
     "since":    ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--since", "{since}"],
     "decision": ["python3", "{plugin:<plugin>}/<engine>.py", "<command>"],
     "note":     ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "{path}", "--brief"],
-    "map":      ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--brief"]
+    "map":      ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--brief"],
+    "hands":    ["python3", "{plugin:<plugin>}/<engine>.py", "<command>", "--after", "{after}", "{paths}"]
   }
 }
 ```
 
 Placeholders: `{plugin:NAME}` (that plugin's root here: a hunsu.local.json link, else its install), `{target}`,
-`{path}`, `{since}`. jokbo runs the read and prints its output under the plugin's name; a plugin that is not here, or a
+`{path}`, `{since}`; for `hands`, `{paths}` (one argument per path) and `{after}` (when the session's last call left the
+tree, ISO UTC). A `hands` read prints a JSON object from path to whose hands its records say changed it (`{"src/a.ts":
+"the implementer of build (run-…)"}`), for the paths it knows; nothing else of it is shown. jokbo runs the read and prints its output under the plugin's name; a plugin that is not here, or a
 read that fails, is said. jokbo knows no product.
 
 **Ranking** is by shared words (BM25 over identifiers split at case and underscores, and Hangul/CJK words) — the same
 answer every time, confirmed by nobody, and every output says so. A section that names the file outright, and documents
-changed in the same commits as the file, rank higher. On guin-site, literal file names linked 19% of related
+changed in the same commits as the file, rank higher. A live document comes before one that says at its top it is retired
+(below, the map), and every quote from a retired one says so — `— retired document (says so at line 16)`: on guin-site
+`find admin` quoted plan/BACKEND.md's admin contract as plainly as the plan that retired it, and 29 first-look notes
+quoted it with nothing said (now 4, marked: no live sentence spoke of those files). Retired documents are not dropped —
+`find` and `file` keep one when none made the top, as history. Two-letter acronyms (D1, R2) are words to `find`. On guin-site, literal file names linked 19% of related
 document/code pairs; shared words put a right section in the top three for 83% of files, and found the backend's
 contracts for files no relation covered.
 
@@ -87,11 +94,17 @@ nothing the agent did. Other harnesses that get used keep two shapes — somethi
 work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) — and jokbo follows them.
 
 - **SessionStart — the map.** What this project holds and how to ask, not the content: the documents with their
-  sections' headings and line ranges (a lone top heading is the title; a long document shows its higher levels and,
-  when they are many, its most recently changed ones; the documents worked on last come first; ~40 heading lines and
+  sections' headings, line ranges and the date of each one's last change (`10-12`; a lone top heading is the title; a
+  long document shows its higher levels and, when they are many, its most recently changed ones; ~40 heading lines and
   about 3,000 characters in all, the oldest headings dropped first — guin-site's ATPROTO.md grew at its end, and the map
-  showed its first fourteen sections, not the ones being worked on) — the index a session built itself with `grep -n "^#"` at its first question
-  and then read by `sed -n` ranges (guin-site 10-08) — a line from each product that declares a `map` read (e.g. the
+  showed its first fourteen sections, not the ones being worked on). The documents come in the order of their last
+  change's day, then of how much that change wrote (the lines it left, or the lines being edited) — never of how many
+  sections they have: on guin-site a retired BACKEND.md, changed in README.md's rewrite commit, took twelve lines on its
+  section count and README.md none. A document that says at its top it no longer holds (its title, or a line before its
+  first section starting with retired, deprecated, superseded, obsolete, 은퇴 or 폐기) gets one line saying so and where.
+  A long line is cut at an item or a word, a list giving up its last items first (`… +2 ; 3 open question(s)`). This is
+  the index a session built itself with `grep -n "^#"` at its first question and then read by `sed -n` ranges (guin-site
+  10-08) — a line from each product that declares a `map` read (e.g. the
   net's concepts and open questions), the three questions jokbo answers. Then, in brief, what changed since this machine
   last looked. Frozen for the session; said again after a compaction (the summary keeps none of it) — without the
   "what changed" part then: a compaction comes mid-answer, and what was committed since is the session's own.
@@ -110,13 +123,19 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   (the meaning of the concept it realizes, the last run that touched it, an open finding on it); with none, the one
   document sentence that speaks of it most directly, quoted, with its section and how current it is. A few hundred
   characters. This arrives before the next call is decided — before an edit. A line is told once per session whichever
-  file it comes with; a line naming something committed since the session started (a commit's hash, a name with four
+  file it comes with; a product's line that starts with the file's own path says its standing there (`<file>: not
+  registered — …`), the same for every file in that state, and is told once per session in that form (guin-site 10-15:
+  with every file the session opened, never acted on) — and it does not stand in for the document sentence, which still
+  comes; a line naming something committed since the session started (a commit's hash, a name with four
   digits or more that is not a date, such as a run id) is left out — it
   is the session's own work, or the change line said it; and a file the documents name outright gets one pointer to
-  `file`. On guin-site's 10-08 → 10-11 notes: 107 lines → 43.
+  `file` (the command spelled out the first time), unless the sections that name it are the ones the session was quoted.
+  On guin-site's 10-08 → 10-11 notes: 107 lines → 43.
 - **PostToolUse — a search in the shell is answered.** `git log … [--] PATH`, `git blame PATH` (git's own options such
   as `-C DIR` skipped; the path taken from where the command ran — `cd`, `-C`, the shell's directory), a recursive grep or
-  rg over a path that holds documents — the project root, `plan/`, a document named, `--include=*.md` — (quotes read
+  rg over a path that holds documents — the project root, `plan/`, a document named, `--include=*.md`; a path counts
+  only inside the project, and not when it holds what jokbo cannot expand: `$M/README.md`, `$(…)`, backticks; guin-site
+  10-15: a grep of a plugin's README was answered with the project's own sections — (quotes read
   before pipes: `grep -E "a|b"` is one pattern); a grep through code only (`src/`) is a code search and is not answered
   (guin-site 10-12: eleven such answers, none cited), the host's Grep tool: what the documents say of that file, or where the project speaks of
   those words (two sections, quoted, and for words the commit whose subject says most) — once per target per session,
@@ -126,7 +145,15 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
 - **PreToolUse — a file written without being read** gets the same line (it arrives with the write's result).
 - **Changes by another hand.** What the session does inside its own calls is its own. What changes between them — the
   owner, another session, a worker — is said once, in a line, at the next prompt (UserPromptSubmit) or call: commits,
-  and paths grouped by whose records they are (the lock's `record-paths`), documents, and the rest.
+  and paths grouped by whose records they are (the lock's `record-paths`), documents, and the rest. A plugin whose engine
+  the session's call runs (`…/NAME.py`, `NAME` as a command, the Skill `NAME:…`) works for the session: its records, and
+  a commit that writes them, are the session's own from that call until 30 minutes after its last such call ended — and,
+  for a call put in the background, until the host notifies its completion (guin-site 10-15: the session's backgrounded
+  `chongdae run`, and the provider it left running, wrote the run's task records; told as another hand's at two prompts).
+  A hired worker's edits to the code are still said — the session did not write them — and, when a product declares a
+  `hands` read that names them, as whose: `changed by the implementer of cache-build (run-20261015-054352-a0ec):
+  src/worker/index.ts, src/worker/read.ts` (guin-site 10-15 05:53:57, told as `files:` — the session's own hired builder);
+  a path no read names stays another hand's. Another session running the same plugin within that window is not said.
 - **Stop** marks where this machine last looked and where the session's calls left the tree.
 - A call that fails (PostToolUseFailure) is still the session's own: what it wrote is not told back as another hand's.
   While a sub-agent runs (the host's Agent tool), the change line is silent — siblings' writes are the session's hands,

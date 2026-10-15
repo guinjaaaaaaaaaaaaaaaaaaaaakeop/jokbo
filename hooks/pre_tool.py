@@ -1,5 +1,6 @@
 """PreToolUse on every tool — two things. What another hand changed since this session's last call (anything between
-the last call's end and this call's start is not this session's doing), said in a line. And, for a write to a file the
+the last call's end and this call's start is not this session's doing, but the records of a plugin this session's calls
+run — note_call), said in a line. And, for a write to a file the
 session never looked at, the note the read hook would have given (it arrives with the result: it informs the next edit,
 not this one). A shell command is read for the files it writes against the shell's directory. Never a permission
 decision, never a block."""
@@ -21,8 +22,9 @@ def main():
         st, _ = jokbo.session_state(target, p.get("session_id"))
         now = jokbo.snapshot(target)
         if st.get("last") and not jokbo.agents_in_flight(target):
-            lines += jokbo.change_report(target, st["last"], now)
+            lines += jokbo.change_report(target, st["last"], now, own=jokbo.own_plugins(st))
         jokbo.remember(target, p.get("session_id"), now)
+        jokbo.note_call(target, p.get("session_id"), p)   # a plugin's engine run by this call works for the session
         if p.get("tool_name") in jokbo.AGENT_TOOLS:
             jokbo.agents_in_flight(target, p.get("session_id"), +1)
         inp = p.get("tool_input") or {}

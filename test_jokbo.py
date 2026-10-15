@@ -1,4 +1,5 @@
 """jokbo self-checks — standard library only: `python3 test_jokbo.py`."""
+import calendar
 import contextlib
 import io
 import json
@@ -201,7 +202,9 @@ def test_the_session_start_line_is_a_map_and_what_changed_since_this_machine_loo
         ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
         assert "what this project holds, and how to ask" in ctx and "find WORDS" in ctx, ctx
         # the documents as a reader scans them: headings with line ranges, a lone top heading as the title (guin-site 10-08)
-        assert "plan/PLAN.md — Plan (3 section(s)):\n    5-12  Q-feed — the front page\n    13-16  Q-tags — tagging" in ctx, ctx
+        # … and each one's last change, compact (10-15: "newest" could not be seen)
+        d = jokbo.day(calendar.timegm((2026, 9, 1, 0, 0, 0)))
+        assert "plan/PLAN.md — Plan (3 section(s), last %s):\n    5-12  Q-feed — the front page  %s\n    13-16  Q-tags — tagging  %s" % (d, d, d) in ctx, ctx
         assert "commit(s) since" not in json.loads(hook("session_start.py", {"cwd": r.dir})[1])["hookSpecificOutput"]["additionalContext"], "nothing new"
         write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-about\n\nOne page about the author.\n")
         r.git("commit", "-qam", "about page")
@@ -559,8 +562,9 @@ def test_a_prompt_is_matched_on_its_prose_not_a_pasted_command_and_nouns_keep_th
 
 
 def test_an_older_cache_is_brought_up_to_date_without_blame():
-    """INDEX_FORMAT 6 adds a heading's level and a section's match keys; a full rebuild blames every document and, on a
-    large project, outran the hooks' timeout. An older cache keeps its blame and gains the rest from the files."""
+    """INDEX_FORMAT 6 added a heading's level and a section's match keys, 7 a document's last change and retired line; a
+    full rebuild blames every document and, on a large project, outran the hooks' timeout. An older cache keeps its blame
+    and gains the rest from the files."""
     with Repo() as r:
         built = jokbo.index(r.dir)
         old = json.load(io.open(r.p(".jokbo/index.json"), encoding="utf-8"))
@@ -576,6 +580,8 @@ def test_an_older_cache_is_brought_up_to_date_without_blame():
         up = jokbo.index(r.dir)
         assert up["format"] == jokbo.INDEX_FORMAT and all(x["changed"] == 12345 for x in up["sections"]), "blame was not run again"
         assert [(x["level"], x["keys"]) for x in up["sections"]] == [(x["level"], x["keys"]) for x in built["sections"]]
+        docs = [e for e in up["entries"].values() if e.get("sections")]
+        assert docs and all(e["size"] > 0 and "retired" in e for e in docs), "7: a document's last change, from its last commit"
 
 
 def test_a_compaction_does_not_tell_the_session_its_own_commits():
@@ -635,6 +641,228 @@ def test_the_map_keeps_the_newest_sections_and_its_size():
         assert m.index("plan/LOG.md") < m.index("plan/PLAN.md"), "the document worked on last comes first"
         assert len(m) <= jokbo.MAP_CHARS + 400, len(m)
 
+
+def test_the_map_orders_documents_by_their_last_change_and_gives_a_retired_one_a_line():
+    """guin-site 10-13: README.md (rewritten) and BACKEND.md (a retirement note at its top) changed in one commit; the tie
+    went to the document with more sections, so BACKEND.md got twelve heading lines and README.md one mention. Documents
+    are ordered by the day of their last change and how much it wrote; one that says at its top it is retired gets a line."""
+    with Repo() as r:
+        old = "# Backend\n\nThe old structure.\n\n" + "".join("## B%02d\n\nold part %d.\n\n" % (i, i) for i in range(1, 15))
+        write(r.p("plan/BACKEND.md"), old)
+        write(r.p("GUIDE.md"), "# Guide\n\n## How to write\n\nShort.\n\n## How to publish\n\nShort.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "both", env_date="2026-09-05T00:00:00Z")
+        write(r.p("plan/BACKEND.md"), old.replace("The old structure.\n", "The old structure.\n\n**Retired (2026-09-06):** no longer true.\n"))
+        write(r.p("GUIDE.md"), "# Guide\n\n" + "".join("## Step %d — rewritten\n\nA new step %d, said at length.\nAnd more.\n\n" % (i, i) for i in range(1, 6)))
+        r.git("commit", "-qam", "guide rewritten; backend retired", env_date="2026-09-06T00:00:00Z")
+        m = "\n".join(jokbo.map_report(r.dir))
+        d = jokbo.day(calendar.timegm((2026, 9, 6, 0, 0, 0)))
+        assert m.index("GUIDE.md — Guide (6 section(s), last %s)" % d) < m.index("plan/BACKEND.md"), m
+        assert "    3-7  Step 1 — rewritten  %s" % d in m, "each heading with its last change"
+        assert "plan/BACKEND.md — Backend — retired (says so at line 5), %s; 15 section(s)" % d in m and "B01" not in m, m
+        assert m.index("plan/BACKEND.md") < m.index("plan/PLAN.md"), "a retired document keeps its place, in one line"
+    assert jokbo.retired_at("# 뒷단 구조\n\n**은퇴 (2026-10-12):** 더 이상 사실이 아니다.\n") == 3
+    assert jokbo.retired_at("# Old design (superseded)\n") == 1
+    assert jokbo.retired_at("# Plan\n\nThe deprecated API is gone.\n\n## Deprecated flags\n") is None, "a mention or a section is not the document's state"
+
+
+def test_a_long_line_is_cut_at_an_item_or_a_word_never_inside_one():
+    """guin-site's map line ended "ui-language ; 3 ope …": the open questions, the line's point, cut mid-word."""
+    line = "22 concept(s): " + ", ".join("concept-%02d" % i for i in range(22)) + " ; 3 open question(s)"
+    short = jokbo.cut(line, 240)
+    assert len(short) <= 240 and short.endswith("; 3 open question(s)") and ", … +" in short, short
+    words_line = "The snapshot sits in isolate memory and in the Cache API by rev, thirty days, and a stale one is served on error"
+    short = jokbo.cut(words_line, 60)
+    assert len(short) <= 60 and short.endswith(" …") and words_line.startswith(short[:-2]) and words_line[len(short) - 2] in " ,", short
+    assert jokbo.cut("short", 60) == "short"
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            write(os.path.join(plug, "map.py"), "print(%r)\n" % line)
+            write(r.p("hunsu.local.json"), {"links": {"netty": plug}})
+            write(r.p("hunsu.lock.json"), {"reads": {"netty": {"map": ["python3", "{plugin:netty}/map.py"]}}})
+            netty = [l for l in jokbo.map_report(r.dir) if l.startswith("  netty: ")][0]
+            assert netty.endswith("; 3 open question(s)"), netty
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_a_line_on_a_files_standing_is_said_once_and_the_document_sentence_still_comes():
+    """guin-site 10-15: every first look got "mangsang: <file>: not registered …" and a pointer to `file`, and the session
+    used none of them. A product's line that starts with the file's path says its standing — told once per session in its
+    form; it does not stand in for the document sentence; and the pointer goes when the sections naming the file were
+    the ones said."""
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            write(os.path.join(plug, "note.py"), "import sys\nprint(sys.argv[1] + ': not registered — the net does not see it')\n")
+            write(r.p("hunsu.local.json"), {"links": {"netty": plug}})
+            write(r.p("hunsu.lock.json"), {"reads": {"netty": {"note": ["python3", "{plugin:netty}/note.py", "{path}"]}}})
+            write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-feed-code\n\nThe front page is `src/feed.ts`: posts newest first by written time.\n")
+            r.git("add", "-A"); r.git("commit", "-qm", "the plan names the feed")
+            hook("session_start.py", {"cwd": r.dir, "session_id": "s1", "source": "startup"})
+            read = lambda f: (json.loads(hook("post_tool.py", {"cwd": r.dir, "session_id": "s1", "tool_name": "Read",
+                                                               "tool_input": {"file_path": r.p(f)}})[1] or "{}").get("hookSpecificOutput") or {}).get("additionalContext", "")
+            tags = read("src/tags.ts")
+            assert "netty: src/tags.ts: not registered" in tags and "Q-tags" in tags and "\u201c" in tags, "the standing, and what the file is about"
+            feed = read("src/feed.ts")
+            assert "not registered" not in feed, "said once in its form, not with every file: " + feed
+            assert "Q-feed-code" in feed and "\u201c" in feed, feed
+            assert "more:" not in feed, "the one section naming it was the one quoted: " + feed
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
+    with Repo() as r:
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-one\n\nSee `src/tags.ts`.\n\n## Q-two\n\nAlso `src/tags.ts` and `src/feed.ts`.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "two sections name the code")
+        hook("session_start.py", {"cwd": r.dir, "session_id": "s2", "source": "startup"})
+        read = lambda f: (json.loads(hook("post_tool.py", {"cwd": r.dir, "session_id": "s2", "tool_name": "Read",
+                                                           "tool_input": {"file_path": r.p(f)}})[1] or "{}").get("hookSpecificOutput") or {}).get("additionalContext", "")
+        first, second = read("src/tags.ts"), read("src/feed.ts")
+        assert "more: `" in first and "jokbo.py\" file src/tags.ts`" in first, first
+        assert "more: jokbo `file src/feed.ts`" in second, "the command spelled out once: " + second
+
+
+def test_the_session_start_map_stays_within_its_size():
+    """A five-second session (guin-site 10-12, a translation) got the whole session-start text: the map is bounded, retired
+    documents and long product lines included."""
+    with Repo() as r:
+        for i in range(30):
+            body = "# Doc %d\n\n" % i + ("Retired: kept for history.\n\n" if i % 3 == 0 else "") + \
+                   "".join("## A heading that runs long, number %d of document %d\n\ntext.\n\n" % (k, i) for k in range(20))
+            write(r.p("docs/d%02d.md" % i), body)
+        r.git("add", "-A"); r.git("commit", "-qm", "many documents")
+        m = "\n".join(jokbo.map_report(r.dir))
+        assert len(m) <= jokbo.MAP_CHARS + len(jokbo.engine_path()), len(m)
+        assert sum(1 for l in m.split("\n") if l.startswith("    ")) <= jokbo.MAP_HEADINGS
+
+
+def test_a_document_path_counts_only_inside_the_project_and_as_the_shell_would_expand_it():
+    """guin-site 10-15: `M=<mangsang's install>; grep -n … $M/README.md` was answered with the project's own sections —
+    any argument ending in .md was a document of the project. A path counts when it resolves inside the project (from
+    where the command ran; /var and /private/var are one place) and holds nothing jokbo cannot expand."""
+    with Repo() as r:
+        files = set(jokbo.index(r.dir)["files"])
+        t = lambda c, cwd=None: jokbo.history_targets(r.dir, c, files, cwd)
+        outside = tempfile.mkdtemp(prefix="jokbo-other-")
+        try:
+            write(os.path.join(outside, "README.md"), "# Other\n\nproposals file\n")
+            for c in ("M=/x/mangsang; grep -n -A25 -i 'proposals file' $M/README.md | head -60",
+                      "grep -n tags ${M}/README.md", "grep -n tags $(dirname x)/README.md", "grep -n tags `pwd`/README.md",
+                      "grep -n tags %s/README.md" % outside, "grep -n tags ../README.md", "grep -n tags ~nobody-here/README.md"):
+                assert t(c) == [], c
+            assert t("grep -rn tags %s" % outside) == [], "a recursive grep elsewhere is not the project's"
+            assert t("grep -n tags %s" % r.p("plan/PLAN.md")) == [("terms", "tags")], "an absolute path inside counts"
+            real = os.path.realpath(r.dir)
+            assert t("grep -n tags %s" % os.path.join(real, "plan/PLAN.md")) == [("terms", "tags")], "/private/var is /var"
+            assert t("grep -n tags ../plan/PLAN.md", cwd=r.p("src")) == [("terms", "tags")]
+        finally:
+            shutil.rmtree(outside, ignore_errors=True)
+
+
+def test_records_a_plugin_this_session_ran_writes_are_the_sessions_own():
+    """guin-site 10-15 06:15:38 and 06:20:42: the session's backgrounded `chongdae run` (and the provider it left running)
+    wrote the run's task records; jokbo told them as another hand's. A plugin whose engine the session's call runs works
+    for the session — until its background call's completion is notified, and OWN_WINDOW after its last call — so its
+    records, and a commit that writes them, are the session's own. Another plugin's, and the rest, are still told."""
+    with Repo() as r:
+        write(r.p("hunsu.lock.json"), {"record-paths": {"chongdae": [".chongdae/"], "netty": ["net/"]}})
+        r.git("add", "-A"); r.git("commit", "-qm", "lock")
+        hook("session_start.py", {"cwd": r.dir, "session_id": "b1"})
+        bg = {"cwd": r.dir, "session_id": "b1", "tool_name": "Bash", "tool_use_id": "toolu_bg1",
+              "tool_input": {"command": "while kill -0 1 2>/dev/null; do sleep 10; done; python3 /p/chongdae/1.20.0/chongdae.py run 2>&1 | tail -12",
+                             "run_in_background": True}}
+        hook("pre_tool.py", bg)
+        hook("post_tool.py", dict(bg, hook_event_name="PostToolUse"))
+        write(r.p(".chongdae/run-1/tasks/build.json"), {"status": "todo"})   # the background run, after the call returned
+        ls = {"cwd": r.dir, "session_id": "b1", "tool_name": "Bash", "tool_input": {"command": "ls"}}
+        assert "another hand" not in hook("pre_tool.py", ls)[1], "the background run's records are the session's"
+        hook("post_tool.py", ls)
+        jokbo.save(r.p(".jokbo/sessions/b1.json"), dict(jokbo.session_state(r.dir, "b1")[0],
+                                                       working={"chongdae": time.time() - jokbo.OWN_WINDOW - 1}))
+        write(r.p(".chongdae/run-1/tasks/build.json"), {"status": "done"})
+        r.git("add", "-A"); r.git("commit", "-qm", "run-1: build done")   # the engine's commit, records with the work
+        note = "<task-notification>\n<task-id>b1x</task-id>\n<tool-use-id>toolu_bg1</tool-use-id>\n<status>completed</status>\n</task-notification>"
+        out = hook("prompt.py", {"cwd": r.dir, "session_id": "b1", "prompt": note})[1]
+        assert "another hand" not in out, "still open until its notification: " + out
+        write(r.p(".chongdae/run-1/tasks/tests.json"), {"status": "todo"})   # the provider it left, after the notification
+        assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "b1", "prompt": "next"})[1], "within OWN_WINDOW"
+        write(r.p("net/concepts/feed.json"), {"means": "x"})
+        write(r.p(".chongdae/run-1/tasks/other.json"), {"status": "todo"})
+        ctx = hook("prompt.py", {"cwd": r.dir, "session_id": "b1", "prompt": "again"})[1]
+        assert "netty's records: net/concepts/feed.json" in ctx and ".chongdae" not in ctx, ctx
+        jokbo.save(r.p(".jokbo/sessions/b1.json"), dict(jokbo.session_state(r.dir, "b1")[0], working={}, background={}))
+        write(r.p(".chongdae/run-2/tasks/x.json"), {"status": "todo"})   # another session's run, this one not calling chongdae
+        assert "chongdae's records: .chongdae/run-2/tasks/x.json" in hook("prompt.py", {"cwd": r.dir, "session_id": "b1", "prompt": "q"})[1]
+        names = lambda c: jokbo.engine_called(r.dir, "Bash", {"command": c})
+        assert names("cat .chongdae/run-1/tasks/x.json") == set() and names("grep -rn chongdae README.md") == set()
+        assert names("C=/p/chongdae.py; python3 $C run") == {"chongdae"} and names("chongdae status") == {"chongdae"}
+        assert jokbo.engine_called(r.dir, "Skill", {"skill": "chongdae:run"}) == {"chongdae"}
+
+
+
+def test_a_retired_documents_quote_says_so_and_a_live_one_answers_first():
+    """guin-site 10-15: plan/BACKEND.md says at line 16 that it is retired, yet `find`, `file`, the note at first look and
+    the prompt quoted its D1/R2/admin structure as plainly as the plan that replaced it. Every quote from a retired
+    document says so; a live document that answers the same question comes first; history is still there when asked."""
+    with Repo() as r:
+        write(r.p("plan/BACKEND.md"), "# Backend\n\n**Retired (2026-09-06):** no longer true; see plan/PLAN.md.\n\n"
+              "## Storage\n\nThe posts live in D1 tables and the admin screen writes the front page feed rows, newest first.\n\n"
+              "## Backup\n\nA nightly backup copies the D1 tables to S3.\n")
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-store — where posts live\n\nThe posts live in the PDS; the old D1 "
+              "tables are gone and the front page feed reads the records.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "backend retired; posts in the PDS", env_date="2026-09-06T00:00:00Z")
+        mark = "retired document (says so at line 3)"
+        out = run("find", "D1", "--target", r.dir)[1]
+        assert "Q-store" in out and "plan/BACKEND.md#Storage" in out, "two letters (D1) are a word to ask for: " + out
+        assert out.index("Q-store") < out.index("plan/BACKEND.md#Storage"), "the live document first"
+        assert all(mark in l for l in out.split("\n") if l.startswith("  plan/BACKEND.md")), out
+        assert not any(mark in l for l in out.split("\n") if "Q-store" in l), "a live one is not marked"
+        hist = run("find", "nightly", "backup", "--target", r.dir)[1]
+        assert "plan/BACKEND.md#Backup" in hist and mark in hist, "history is still asked for, and said as history: " + hist
+        f = run("file", "src/feed.ts", "--target", r.dir)[1]
+        assert all(mark in l for l in f.split("\n") if l.startswith("  plan/BACKEND.md")), f
+        own = run("file", "plan/BACKEND.md", "--target", r.dir)[1]
+        assert "says at line 3 that it is retired" in own.split("\n")[0], own
+        note = jokbo.note_report(r.dir, "src/feed.ts")
+        assert note and "BACKEND" not in "\n".join(note), "a live document's sentence at first look: %s" % note
+        idx = jokbo.index(r.dir)
+        old = [x for x in idx["sections"] if x["file"] == "plan/BACKEND.md" and x["heading"] == "Storage"][0]
+        assert jokbo.rank_sections(idx, jokbo.words("admin screen writes"), top=1)[0] is old, "only the retired one speaks of it"
+        said, ids = jokbo.prompt_report(r.dir, "does the admin screen write the feed rows into D1 tables?")
+        assert any("plan/BACKEND.md" in l and mark in l for l in said), said
+        assert all(mark in l for l in said if "plan/BACKEND.md" in l), said
+        since = "\n".join(jokbo.since_report(r.dir, "HEAD~1"))
+        assert "plan/BACKEND.md#Storage — " + mark in since and "plan/PLAN.md#Q-store — where posts live\n" in since + "\n", since
+
+
+def test_a_hired_workers_edits_are_told_as_its_own_when_a_products_records_say_whose():
+    """guin-site 10-15 05:53:57: "changed by another hand — files: src/worker/index.ts, src/worker/read.ts" was the
+    session's own hired builder (task cache-build, run-20261015-054352-a0ec). Still told — the session did not write
+    them — but as whose the declared `hands` read says ({paths}: one argument each; {after}: the last call's time); a
+    path it does not name, a read that fails or says nothing parseable, stays another hand's."""
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            write(os.path.join(plug, "hands.py"), "import json, sys\nafter, paths = sys.argv[1], sys.argv[2:]\nassert after.endswith('Z'), after\n"
+                  "print(json.dumps({p: 'the implementer of feed-build (run-1)' for p in paths if p.startswith('src/feed')}))\n")
+            write(r.p("hunsu.local.json"), {"links": {"crew": plug}})
+            write(r.p("hunsu.lock.json"), {"record-paths": {"crew": [".crew/"]},
+                                           "reads": {"crew": {"hands": ["python3", "{plugin:crew}/hands.py", "{after}", "{paths}"]}}})
+            r.git("add", "-A"); r.git("commit", "-qm", "lock")
+            old = jokbo.snapshot(r.dir)
+            write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// the worker's\n")
+            write(r.p("src/tags.ts"), r.read("src/tags.ts") + "// the owner's\n")
+            write(r.p(".crew/run-1/tasks/feed-build.json"), {"status": "running"})
+            lines = jokbo.change_report(r.dir, old, jokbo.snapshot(r.dir))
+            assert "  changed by the implementer of feed-build (run-1): src/feed.ts" in lines, lines
+            assert "  files: src/tags.ts" in lines and "  crew's records: .crew/run-1/tasks/feed-build.json" in lines, lines
+            write(os.path.join(plug, "hands.py"), "print('not json')\n")
+            lines = jokbo.change_report(r.dir, old, jokbo.snapshot(r.dir))
+            assert "  files: src/feed.ts, src/tags.ts" in lines, "no source says whose: another hand's — %s" % lines
+            write(r.p("hunsu.lock.json"), {"record-paths": {"crew": [".crew/"], "hunsu": ["hunsu.lock.json"]}})
+            assert "  files: src/feed.ts, src/tags.ts" in jokbo.change_report(r.dir, old, jokbo.snapshot(r.dir)), "none declared"
+            assert jokbo.change_report(r.dir, old, dict(old, at="later")) == [], "the time alone is not a change"
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
 
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):

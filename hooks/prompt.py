@@ -17,7 +17,9 @@ def main():
     try:
         st, _ = jokbo.session_state(target, p.get("session_id"))
         now = jokbo.snapshot(target)
-        lines = jokbo.change_report(target, st.get("last"), now) if st.get("last") and not jokbo.agents_in_flight(target) else []
+        lines = jokbo.change_report(target, st.get("last"), now, own=jokbo.own_plugins(st)) \
+            if st.get("last") and not jokbo.agents_in_flight(target) else []
+        jokbo.background_ended(target, p.get("session_id"), p.get("prompt") or "")   # after its report: what it wrote is its own
         st = jokbo.remember(target, p.get("session_id"), now)
         said, ids = jokbo.prompt_report(target, p.get("prompt") or "", told=st.get("quoted", []))
         if ids:

@@ -33,7 +33,7 @@ def main():
             jokbo.mark_seen(target)
         elif seen["head"] != head and p.get("source") != "compact":   # a compaction comes mid-answer: what changed is the session's own
             lines += jokbo.since_report(target, seen["head"], brief=True)
-        st = jokbo.remember(target, p.get("session_id"), reset=True, keep=("start",) if p.get("source") == "compact" else ())
+        st = jokbo.remember(target, p.get("session_id"), reset=True, keep=("start", "working", "background") if p.get("source") == "compact" else ())
         if not st.get("start") and head:   # where this session started: what is committed after it is the session's own news
             st["start"] = head
             jokbo.save(jokbo.session_state(target, p.get("session_id"))[1], st)

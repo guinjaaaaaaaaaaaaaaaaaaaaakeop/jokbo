@@ -12,10 +12,10 @@
 
 The base layer is what every project has: its documents (Markdown, by heading), its code (as the targets things point at,
 and its docstrings and leading comments) and its git history. Products' records are an overlay, read only through what the
-lock declares (`reads` in hunsu.lock.json, or hunsu.json: {plugin: {kind: argv}}, kinds `file`, `since`, `decision`, with
-`{plugin:NAME}`, `{target}`, `{path}`, `{since}`) — jokbo knows no product. Ranking is by shared words (BM25), the same
-answer every time, confirmed by nobody: it says so. Freshness is git's: a section written before the file last changed is
-marked. jokbo never decides and never becomes a source: `.jokbo/` is a cache (ignored, rebuilt), never committed.
+lock declares (`reads` in hunsu.lock.json, or hunsu.json: {plugin: {kind: argv}}, kinds `file`, `since`, `decision`, `note`,
+`map`, `hands`, with `{plugin:NAME}`, `{target}`, `{path}`, `{since}`, `{paths}`, `{after}`) — jokbo knows no product. Ranking is
+by shared words (BM25), the same answer every time, confirmed by nobody: it says so; a live document before a retired one,
+and a retired one's quote says so. Freshness is git's: a section written before the file last changed is marked. jokbo never decides and never becomes a source: `.jokbo/` is a cache (ignored, rebuilt), never committed.
 """
 import argparse
 import collections
@@ -33,8 +33,9 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 6
-MIGRATES = (5,)    # an index of these formats is brought up to date entry by entry, without blame (5 lacked `level`, `keys`)
+INDEX_FORMAT = 7
+MIGRATES = (5, 6)  # an index of these formats is brought up to date entry by entry, without blame (5 lacked `level`, `keys`;
+                   # 6 a document's `size` and `retired`)
 KEYED = 2          # how a section's match keys are cut (stem, section_keys): a change re-keys the cache, without blame
 PY = "python3" if shutil.which("python3") else "python"
 DOC_EXT = (".md", ".markdown")
@@ -210,12 +211,17 @@ def run_read(target, plugin, argv, values, timeout=20):
     failing command is said, never guessed around."""
     out = []
     for a in argv:
+        if a == "{paths}":   # a list: one argument per path
+            if values.get("paths") is None:
+                return None, "no {paths} to give it"
+            out.extend(values["paths"])
+            continue
         for m in set(re.findall(r"\{plugin:([\w.-]+)\}", a)):
             root = plugin_root(target, m)
             if not root:
                 return None, "plugin %s is not installed or linked here" % m
             a = a.replace("{plugin:%s}" % m, root.replace(os.sep, "/"))
-        for key in ("target", "path", "since"):
+        for key in ("target", "path", "since", "after"):
             if "{%s}" % key in a:
                 if values.get(key) is None:
                     return None, "no {%s} to give it" % key
@@ -233,9 +239,32 @@ def run_read(target, plugin, argv, values, timeout=20):
     return text, None
 
 
-def overlay(target, kind, values):
+def overlay(target, kind, values, timeout=20):
     """[(plugin, text | None, why | None)] for every plugin that declares this kind of read."""
-    return [(p, *run_read(target, p, kinds[kind], dict(values, target=target))) for p, kinds in sorted(declared_reads(target).items()) if kind in kinds]
+    return [(p, *run_read(target, p, kinds[kind], dict(values, target=target), timeout)) for p, kinds in sorted(declared_reads(target).items()) if kind in kinds]
+
+
+HANDS_TIMEOUT = 5   # the change line waits this long, at most, for a product to say whose a change is
+
+
+def hands(target, paths, after=None):
+    """{path: whose} — what the declared `hands` reads say of who changed these paths: a JSON object from path to a phrase
+    ("the implementer of cache-build (run-20261015-054352-a0ec)"), for the paths the product's records name; `{after}` is
+    when the session's last call left the tree (ISO, UTC), `{paths}` one argument per path. The rest, and
+    any read that fails or says nothing it can parse, stay another hand's. guin-site 10-15 05:53:57: "files:
+    src/worker/index.ts, src/worker/read.ts" was the session's own hired builder (task cache-build), told as anyone's."""
+    out, want = {}, set(paths)
+    if not want:
+        return out
+    for plugin, text, why in overlay(target, "hands", {"paths": sorted(want), "after": after}, HANDS_TIMEOUT):
+        try:
+            said = json.loads(text) if text and text.strip() else {}
+        except ValueError:
+            continue
+        for p, who in (said.items() if isinstance(said, dict) else ()):
+            if p in want and isinstance(who, str) and who.strip() and p not in out:
+                out[p] = re.sub(r"\s+", " ", who.strip())[:160]
+    return out
 
 
 # ---------------------------------------------------------------- the base layer: documents, code, git
@@ -411,7 +440,7 @@ def build_index(target, previous=None):
                                       and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(g)) + r"(?![\w-])", sec["text"]))))
                 del sec["text"]   # read from the file when shown: the cache keeps positions, the document keeps its words
                 secs.append(sec)
-            entries[f] = {"key": key, "sections": secs, "keyed": KEYED}
+            entries[f] = dict({"key": key, "sections": secs, "keyed": KEYED}, **doc_facts(text, times, f in dirty))
         else:
             said = code_words(f, text)
             for w in said:
@@ -421,13 +450,59 @@ def build_index(target, previous=None):
             "files": files, "entries": entries, "commits": commits}
 
 
+MARKER = r"(?:retired|deprecated|superseded|obsolete|은퇴|폐기)"
+RETIRED = re.compile(r"(?<![\w-])%s(?![\w-])" % MARKER, re.I)
+RETIRED_LEAD = re.compile(r"\s*(?:>\s*)?(?:[-*]\s+)?(?:\*\*|__)?\s*(?:status\s*:\s*)?%s(?:\*\*|__)?\s*(?:[:(.—–-]|by\b|$)" % MARKER, re.I)
+RETIRED_WITHIN = 20   # a document says it is retired at its top: in its title, or a line under it that starts with the word
+
+
+def retired_at(text):
+    """The line where a document says, at its top, that it no longer holds (guin-site's BACKEND.md: "**은퇴 (2026-10-12 …):**
+    이 문서의 구조는 더 이상 사실이 아니다" at line 16): its title holding a marker (retired, deprecated, superseded, obsolete,
+    은퇴, 폐기), or a line of its first ones, before its first section, starting with one. None for a document that speaks of
+    something retired further on, or in a section of its own ("## Deprecated flags")."""
+    heads = 0
+    for i, l in enumerate(text.split("\n")[:RETIRED_WITHIN], 1):
+        h = re.match(r"\s*#{1,6}\s+(.*)", l)
+        if h:
+            heads += 1
+            if heads > 1:
+                return None
+            if RETIRED.search(h.group(1)):
+                return i
+        elif RETIRED_LEAD.match(l):
+            return i
+    return None
+
+
+def doc_facts(text, times, dirty):
+    """What the map orders documents by (guin-site 10-13: README.md, rewritten on 10-12, lost its place to the retired
+    BACKEND.md of the same commit, which had more sections): how much the last change wrote — the lines blame gives to the
+    document's newest commit, or its uncommitted lines while it is being edited — and whether it says it is retired."""
+    n = len(text.split("\n"))
+    if dirty and len(times) < n:
+        size = n - len(times)
+    else:
+        newest = max([t for t in times.values() if t] or [0])
+        size = sum(1 for t in times.values() if t == newest) if newest else 0
+    return {"size": size, "retired": retired_at(text)}
+
+
 def upgrade(target, f, entry):
     """An entry of an older index format, its file unchanged since: what the new format adds, from the file as it is —
-    a heading's level and a section's match keys. Blame, the costly part, is kept (a full rebuild of a large project
-    outran the hooks' timeout, so every hook would have been killed until one finished)."""
-    if not entry.get("sections") or entry.get("keyed") == KEYED:
+    a heading's level, a section's match keys, a document's retired line and the size of its last change (from the last
+    commit's numstat). Blame, the costly part, is kept (a full rebuild of a large project outran the hooks' timeout, so
+    every hook would have been killed until one finished)."""
+    if not entry.get("sections") or (entry.get("keyed") == KEYED and "size" in entry):
         return entry
-    lines = read_text(target, f).split("\n")
+    text = read_text(target, f)
+    if "size" not in entry:
+        stat = (git(target, "log", "-1", "--format=", "--numstat", "--", f) or "").split()
+        entry["size"] = int(stat[0]) if stat and stat[0].isdigit() else 0
+        entry["retired"] = retired_at(text)
+    if entry.get("keyed") == KEYED:
+        return entry
+    lines = text.split("\n")
     for sec in entry["sections"]:
         if "level" not in sec:
             h = re.match(r"(#{1,6})\s", lines[sec["start"] - 1]) if sec.get("heading") and 0 < sec["start"] <= len(lines) else None
@@ -478,13 +553,28 @@ def freshness(s, changed):
 
 # ---------------------------------------------------------------- ranking
 
-def rank_sections(idx, query, about=None, top=SHOW):
+def retired_of(idx, f):
+    """The line where document f says at its top that it no longer holds (retired_at, kept in the index), or None."""
+    return ((idx.get("entries") or {}).get(f) or {}).get("retired")
+
+
+def retired_mark(idx, f):
+    """What every quote from a retired document carries: guin-site's plan/BACKEND.md (retired 10-12) describes the D1, R2 and
+    admin structure the site no longer has, and `find admin` quoted it as plainly as the plan that replaced it."""
+    at = retired_of(idx, f)
+    return " — retired document (says so at line %d)" % at if at else ""
+
+
+def rank_sections(idx, query, about=None, top=SHOW, history=0):
+    """The sections that share the query's words, best first — a live document's before a retired one's whatever their
+    scores (what holds answers before what was once decided); `history`: up to this many retired ones kept after the top
+    when none made it — an answer that is asked for still shows that the old design spoke of it."""
     secs = idx["sections"]
     if about and about.lower().endswith(DOC_EXT):
         secs = [s for s in secs if s["file"] != about]   # its own sections are what is being edited: the reader has them open
     if not secs or not query:
         return []
-    r = Ranker([s["words"] for s in secs])
+    r = Ranker([s["words"] + acronyms_of(s) for s in secs])
     co = collections.Counter()
     if about:
         for c in idx["commits"]:
@@ -499,9 +589,23 @@ def rank_sections(idx, query, about=None, top=SHOW):
             sc *= 1.5   # it names this file outright
         if co.get(s["file"]):
             sc *= 1 + 0.25 * min(co[s["file"]], 4)   # documents changed in the same commits as this file
-        scored.append((sc, i))
-    scored.sort(reverse=True)
-    return [secs[i] for _, i in scored[:top]]
+        scored.append((bool(retired_of(idx, s["file"])), -sc, i))
+    scored.sort()
+    out = [secs[i] for _, _, i in scored[:top]]
+    if history and not any(old for old, _, _ in scored[:top]):
+        out += [secs[i] for old, _, i in scored[top:] if old][:history]
+    return out
+
+
+def acronyms_of(section):
+    """A section's two-letter acronyms (D1, R2, OG), kept in its match keys: `words` leaves them out, and `find D1` on
+    guin-site found nothing."""
+    return [k for k in section.get("keys") or () if len(k) == 2 and k.isascii() and k.isalnum()]
+
+
+def query_terms(text):
+    """What an asked question is matched on: its words and its two-letter acronyms."""
+    return words(text) + [a.lower() for a in ACRONYM.findall(text)]
 
 
 def rank_items(items, query, top):
@@ -709,15 +813,17 @@ def file_report(target, path, brief=False):
         query = words(read_text(target, path) + " " + path)
     else:
         query = words(path)   # a picture's bytes are not words: its name is all that can be matched
-    secs = rank_sections(idx, query, about=path)
+    secs = rank_sections(idx, query, about=path, history=1)
     head = "jokbo — %s" % path + ("" if exists else " (not in the tree: ranked by its name only)")
+    if doc and retired_of(idx, path):
+        head += " — this document says at line %d that it is retired: what it describes is history" % retired_of(idx, path)
     lines.append(head)
     if secs:
         lines.append(("other documents that say the same things" if doc else "documents that speak of it")
                      + " (ranked by shared words — nobody confirmed these; open the ones that matter):")
         for s in secs:
             fresh = ("written %s" % stamp(s["changed"]) if s.get("changed") else "being edited (uncommitted)") if doc else freshness(s, changed)
-            lines.append("  %s  (lines %d-%d) — %s" % (s["id"], s["start"], s["end"], fresh))
+            lines.append("  %s  (lines %d-%d) — %s%s" % (s["id"], s["start"], s["end"], fresh, retired_mark(idx, s["file"])))
     else:
         lines.append("documents: no %ssection shares its words" % ("other " if doc else ""))
     named = []
@@ -752,7 +858,7 @@ def file_report(target, path, brief=False):
             # briefs once made 20 KB, and the host put it in a file the agent never opened)
             kept, size = [], 0
             for l in body[:BRIEF_LINES]:
-                l = l if len(l) <= BRIEF_WIDTH else l[:BRIEF_WIDTH] + " …"
+                l = cut(l, BRIEF_WIDTH)
                 if size + len(l) > BRIEF_CHARS:
                     break
                 kept.append(l)
@@ -801,8 +907,9 @@ def since_report(target, rev=None, brief=False):
         changed = changed_sections(target, idx, rev)
         if changed:
             lines.append("document sections changed:")
+            doc_of = {x["id"]: x["file"] for x in idx["sections"]}
             for sid in (changed[:6] if brief else changed):
-                lines.append("  " + sid)
+                lines.append("  " + sid + retired_mark(idx, doc_of.get(sid)))
             if brief and len(changed) > 6:
                 lines.append("  … %d more" % (len(changed) - 6))
     dirty = [l for l in (git(target, "status", "--porcelain", "--", ".") or "").splitlines() if not l[3:].strip().startswith(record_paths(target))]
@@ -862,14 +969,14 @@ def quote(target, idx, section, query, least=2):
     q = set(query)
     best, score = None, 0.0
     for sent in sentences("\n".join(lines[1:] if section.get("heading") else lines)):
-        shared = q & set(words(sent))
+        shared = q & set(query_terms(sent))
         if len(shared) < least:
             continue
         sc = sum(math.log(1 + n / (1 + df[t])) for t in shared)
         if sc > score:
             best, score = sent, sc
     if best and len(best) > QUOTE:
-        best = best[:QUOTE].rstrip() + " …"
+        best = cut(best, QUOTE)
     return best
 
 
@@ -877,12 +984,12 @@ def find_report(target, terms):
     """Where the project speaks of something — each section with the sentence that says it, the code's own words, the
     commits, and the lines of the declared `decision` reads that share the words. An answer to read, not a list to open."""
     idx = index(target)
-    q = words(" ".join(terms))
+    q = query_terms(" ".join(terms))
     lines = ["jokbo — where the project speaks of: %s (ranked by shared words, confirmed by nobody)" % " ".join(terms)]
-    secs = rank_sections(idx, q, top=6)
+    secs = rank_sections(idx, q, top=6, history=1)
     lines.append("documents:" if secs else "documents: nothing shares these words")
     for s in secs:
-        lines.append("  %s  (lines %d-%d, written %s)" % (s["id"], s["start"], s["end"], when(s.get("changed"))))
+        lines.append("  %s  (lines %d-%d, written %s)%s" % (s["id"], s["start"], s["end"], when(s.get("changed")), retired_mark(idx, s["file"])))
         said_here = quote(target, idx, s, q, least=1)
         if said_here:
             lines.append("    \u201c%s\u201d" % said_here)
@@ -892,7 +999,7 @@ def find_report(target, terms):
         for w in said:
             first = w["text"].strip().split("\n")[0]
             lines.append("  %s:%d — %s" % (w["file"], w["line"], first))
-    commits = [dict(c, words=words(c["subject"])) for c in idx["commits"]]
+    commits = [dict(c, words=query_terms(c["subject"])) for c in idx["commits"]]
     hits = rank_items(commits, q, 5)
     if hits:
         lines.append("commits:")
@@ -926,16 +1033,49 @@ def engine_path():
     return os.path.join(HERE, "jokbo.py").replace(os.sep, "/")
 
 
+def cut(text, n):
+    """A line shortened to at most n characters (and " …") where a reader can still read it: a list in it gives up its last
+    items, so what follows the list stays (guin-site's map line "22 concept(s): about, …, ui-language ; 3 ope …" lost its
+    open questions mid-word); otherwise it ends at an item's or a word's boundary, never inside a word."""
+    if len(text) <= n:
+        return text
+    for m in sorted(re.finditer(r"[^\s,;·:()]+(?:, [^\s,;·:()]+){3,}", text), key=lambda m: -len(m.group(0))):
+        items = m.group(0).split(", ")
+        for k in range(1, len(items) - 1):
+            short = text[:m.start()] + ", ".join(items[:-k]) + ", … +%d" % k + text[m.end():]
+            if len(short) <= n:
+                return short
+    head = text[:max(1, n - 2)]
+    floor = int(n * 0.6)
+    at = max(head.rfind(sep) for sep in (", ", "; ", " · ", " — ", " | "))
+    if at < floor:
+        at = max(head.rfind(" "), head.rfind("\u3000"))
+    if at < floor:
+        at = len(head)   # one long word (a path, a hash): nothing to keep whole
+    return head[:at].rstrip(" ,;:·—–-|(") + " …"
+
+
+def day(t, now=None):
+    """A change's date, compact: "10-12" this year, "2025-03-02" before it, "editing" for uncommitted lines (UTC, as git's
+    stamps elsewhere)."""
+    if t is None:
+        return "editing"
+    if not t:
+        return "?"
+    return time.strftime("%m-%d" if time.gmtime(t).tm_year == time.gmtime(now or time.time()).tm_year else "%Y-%m-%d", time.gmtime(t))
+
+
 MAP_HEADINGS = 40   # heading lines the map gives, across documents; the rest are counted
 MAP_PER_DOC = 14    # a long document shows its top-level sections only, at most this many
 MAP_CHARS = 3000    # the whole map, at most: it is said at every session start, also to a one-prompt session
 
 
 def outline(secs, budget):
-    """A document's sections as a reader scans them — heading and line range — the shape a session built itself at its
-    first question (`grep -n "^#" plan/BACKEND.md plan/PLAN.md`, guin-site 10-08) and then read by `sed -n` ranges. A lone
-    top heading is the document's title, not a section. A long document shows its higher levels only (each range runs to
-    the next heading as high), within `budget` lines. ([lines], title, how many headings were left out)."""
+    """A document's sections as a reader scans them — heading, line range and the date of its last change — the shape a
+    session built itself at its first question (`grep -n "^#" plan/BACKEND.md plan/PLAN.md`, guin-site 10-08) and then read
+    by `sed -n` ranges. A lone top heading is the document's title, not a section. A long document shows its higher levels
+    only (each range runs to the next heading as high), within `budget` lines. ([lines], title, how many headings were left
+    out)."""
     heads = [x for x in secs if x.get("heading")]
     if not heads:
         return [], None, 0
@@ -962,8 +1102,10 @@ def outline(secs, budget):
     out = []
     for x in shown:
         nxt = next((y["start"] for y in heads if y["start"] > x["start"] and lv(y) <= lv(x)), end + 1)
-        h = x["heading"] if len(x["heading"]) <= 70 else x["heading"][:70] + " …"
-        out.append("    %d-%d  %s" % (x["start"], nxt - 1, h))
+        # a range's date is its newest part's: a top section's subsections are inside it
+        inside = [y for y in secs if x["start"] <= y["start"] < nxt]
+        t = None if any(y.get("changed") is None for y in inside) else max(y.get("changed") or 0 for y in inside)
+        out.append("    %d-%d  %s  %s" % (x["start"], nxt - 1, cut(x["heading"], 70), day(t)))
     return out, title, len(heads) - len(shown)
 
 
@@ -972,66 +1114,104 @@ def doc_recency(secs):
     return max((time.time() if x.get("changed") is None else x["changed"]) for x in secs)
 
 
+def doc_order(entries, by_doc):
+    """Where the work is, first: by the day of a document's last change, then by how much that change wrote (the lines it
+    left, or the lines being edited) — never by how many sections it has (guin-site 10-13: README.md and BACKEND.md changed
+    in one commit; README.md was rewritten, BACKEND.md got a retirement note, and BACKEND.md's fourteen sections won)."""
+    return sorted(by_doc, key=lambda f: (-int(doc_recency(by_doc[f]) // 86400), -(entries.get(f, {}).get("size") or 0), f))
+
+
 def map_report(target):
     """What this project holds and how to ask — not the content. Said at session start (and after a compaction) and frozen
     for the session (a map rewritten mid-session breaks the prompt cache and says things twice): the documents with their
-    sections' headings and line ranges, a line from each product that declares a `map` read, and the three questions jokbo
-    answers."""
+    sections' headings, line ranges and dates, a line from each product that declares a `map` read, and the three questions
+    jokbo answers. A document that says at its top it is retired gets one line, not a share of the headings."""
     idx = index(target)
     by_doc = collections.OrderedDict()
     for x in idx["sections"]:
         by_doc.setdefault(x["file"], []).append(x)
-    order = sorted(by_doc, key=lambda f: (-doc_recency(by_doc[f]), -len(by_doc[f]), f))   # where the work is, first
+    entries = idx["entries"]
     lines = ["jokbo — what this project holds, and how to ask:"]
-    budget, rest = MAP_HEADINGS, []
-    for f in order:
-        shown, title, hidden = outline(by_doc[f], budget) if budget > 0 else ([], None, 0)
-        if not shown:
-            rest.append("%s (%d)" % (f, len(by_doc[f])))
+    budget, rest, spare = MAP_HEADINGS, [], []
+    for f in doc_order(entries, by_doc):
+        secs, last = by_doc[f], day(None if any(x.get("changed") is None for x in by_doc[f]) else doc_recency(by_doc[f]))
+        at = entries.get(f, {}).get("retired")
+        if at:
+            title = next((x["heading"] for x in secs if x.get("heading")), "")
+            lines.append("  %s%s — retired (says so at line %d), %s; %d section(s)" % (f, " — " + cut(title, 70) if title else "", at, last, len(secs)))
+            spare.append(lines[-1])
             continue
-        lines.append("  %s%s (%d section(s)%s):" % (f, " — " + title if title else "", len(by_doc[f]),
-                                                   ", %d deeper or older not shown" % hidden if hidden else ""))
+        shown, title, hidden = outline(secs, budget) if budget > 0 else ([], None, 0)
+        if not shown:
+            rest.append("%s (%d, %s)" % (f, len(secs), last))
+            continue
+        lines.append("  %s%s (%d section(s), last %s%s):" % (f, " — " + cut(title, 70) if title else "", len(secs), last,
+                                                            "; %d deeper or older not shown" % hidden if hidden else ""))
         lines.extend(shown)
         budget -= len(shown)
     if rest:
-        lines.append("  other documents (sections): %s" % ", ".join(rest[:8]) + (", +%d more" % (len(rest) - 8) if len(rest) > 8 else ""))
+        lines.append("  other documents (sections, last change): %s" % ", ".join(rest[:8]) + (", +%d more" % (len(rest) - 8) if len(rest) > 8 else ""))
     for plugin, text, why in overlay(target, "map", {}):
         if text and text.strip():
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
-            lines.append("  %s: %s" % (plugin, " · ".join(l if len(l) <= 240 else l[:240] + " …" for l in first)))
+            lines.append("  %s: %s" % (plugin, " · ".join(cut(l, 240) for l in first)))
     ask = ("  ask: `%s \"%s\" find WORDS` — what was decided and where it is said, quoted; `since [REV]` — what changed; "
            "`file PATH` — all that stands on a file" % (PY, engine_path()))
     while sum(len(l) + 1 for l in lines) + len(ask) > MAP_CHARS:
-        heads = [i for i, l in enumerate(lines) if l.startswith("    ")]
+        heads = [i for i, l in enumerate(lines) if l.startswith("    ")] or [i for i, l in enumerate(lines) if l in spare]
         if not heads:
             break
-        del lines[heads[-1]]   # the least recent document's last heading goes first
+        del lines[heads[-1]]   # the least recent document's last heading goes first; a retired document's line after them
     lines.append(ask)
     return lines
 
 
-def note_report(target, path):
+def status_form(plugin_line, path):
+    """A product's line that starts with the file's own path ("src/read.ts: not registered — the net does not see it …") says
+    the file's standing in that product, the same words for every file in its state: its form, with the path taken out, or
+    None for a line that says something of this file only (a concept's meaning, a run, a finding)."""
+    body = plugin_line.split(": ", 1)[1] if ": " in plugin_line else plugin_line
+    return plugin_line.split(": ", 1)[0] + ": {path}" + body[len(path):] if body.startswith(path) else None
+
+
+def note_report(target, path, keep=None):
     """A line or two per fact that bears on a file, at the session's first look at it: what each product that declares a
     `note` read says of it (the meaning of the concept it realizes, the last run that touched it, an open finding); with
-    none saying anything, the one document sentence that speaks of it most directly, with its section and how current it
-    is. [] when nothing does — a hook says nothing rather than "nothing"."""
+    none saying anything of the file itself, the one document sentence that speaks of it most directly, with its section
+    and how current it is. A product's line on the file's standing ("not registered") is not what the file is about, so the
+    sentence still comes. `keep(line, form, section)`: whether the session should be told the line (tell's once-per-session rules).
+    [] when nothing does — a hook says nothing rather than "nothing"."""
     path = relpath(target, path)
-    lines = []
+    keep = keep or (lambda line, form, section=None: True)
+    lines, about = [], False
     for plugin, text, why in overlay(target, "note", {"path": path}):
         if text and text.strip():
             for l in [l.strip() for l in text.strip().split("\n") if l.strip()][:NOTE_LINES]:
-                lines.append("  %s: %s" % (plugin, l if len(l) <= NOTE_WIDTH else l[:NOTE_WIDTH] + " …"))
-    if not lines:
+                line = "  %s: %s" % (plugin, cut(l, NOTE_WIDTH))
+                form = status_form(line.strip(), path)
+                about = about or form is None
+                if keep(line, form):
+                    lines.append(line)
+    if not about:
         idx = index(target)
         exists = os.path.isfile(os.path.join(target, path))
         query = words(read_text(target, path) + " " + path) if exists and is_text(target, path) else words(path)
-        top = rank_sections(idx, query, about=path, top=1)
-        said = quote(target, idx, top[0], query, least=3) if top else None
+        # a live document's sentence first; a retired one's only when no live one speaks of the file, and marked
+        ranked = rank_sections(idx, query, about=path, top=len(idx["sections"]))
+        live = next((x for x in ranked if not retired_of(idx, x["file"])), None)
+        old = next((x for x in ranked if retired_of(idx, x["file"])), None)
+        s, said = None, None
+        for x in (live, old):
+            said = quote(target, idx, x, query, least=3) if x else None
+            if said:
+                s = x
+                break
         if said:
-            s = top[0]
             fresh = ("written %s" % stamp(s["changed"]) if s.get("changed") else "being edited") if path.lower().endswith(DOC_EXT) \
                 else freshness(s, file_changed(target, path) if exists else None)
-            lines.append("  %s (%s): \u201c%s\u201d" % (s["id"], fresh, said))
+            line = "  %s (%s)%s: \u201c%s\u201d" % (s["id"], fresh, retired_mark(idx, s["file"]), said)
+            if keep(line, None, s["id"]):
+                lines.append(line)
     return ["jokbo — %s:" % path] + lines if lines else []
 
 
@@ -1143,7 +1323,7 @@ def prompt_report(target, text, told=()):
         if len(m) >= PROMPT_SHARED and len(m & rare) >= 2 and secs[i]["id"] not in told:
             cand.append((sum(math.log(1 + n / (1 + df[t])) for t in m), i))
     out, ids = [], []
-    for _, i in sorted(cand, reverse=True)[:8]:
+    for _, i in sorted(cand, key=lambda c: (bool(retired_of(idx, secs[c[1]]["file"])), -c[0]))[:8]:   # a live document's first
         x = secs[i]
         body = read_text(target, x["file"]).split("\n")[x["start"] - 1:x["end"]]
         best, key = None, (0, 0)
@@ -1154,8 +1334,9 @@ def prompt_report(target, text, told=()):
                     and (len(shared_rare), len(shared)) > key:
                 best, key = sent, (len(shared_rare), len(shared))
         if best:
-            said = best if len(best) <= QUOTE else best[:QUOTE].rstrip() + " …"
-            out.append("  %s (lines %d-%d, written %s): \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")), said))
+            said = cut(best, QUOTE)
+            out.append("  %s (lines %d-%d, written %s)%s: \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")),
+                                                                            retired_mark(idx, x["file"]), said))
             ids.append(x["id"])
         if len(out) >= PROMPT_TOLD:
             break
@@ -1259,7 +1440,7 @@ def history_targets(target, command, files, cwd=None):
                     continue
                 if not a.startswith("-") and pat is None:
                     pat = a
-                elif not a.startswith("-") and a.lower().endswith(DOC_EXT):
+                elif not a.startswith("-") and a.lower().endswith(DOC_EXT) and inside(target, here, a):
                     rec = True   # a grep over a document is a search of what the project says
                 i += 1
             terms = pattern_terms(pat)
@@ -1269,14 +1450,27 @@ def history_targets(target, command, files, cwd=None):
             docs = [f for f in files if f.lower().endswith(DOC_EXT)]
 
             def holds_docs(a):
-                rel = relpath(target, os.path.join(here, a))
-                return a.lower().endswith(DOC_EXT) or rel in (".", "") or any(f.startswith(rel.rstrip("/") + "/") for f in docs)
+                rel = inside(target, here, a)
+                return rel is not None and (rel.lower().endswith(DOC_EXT) or rel == "." or any(f.startswith(rel.rstrip("/") + "/") for f in docs))
             on_docs = any(holds_docs(a) for a in (ops or ["."])) or \
                 any(re.search(r"--include=?\S*\.(?:md|markdown)\b", a) for a in args) or \
                 any(a in ("--type=md", "-tmd") for a in args) or ("-t" in args and "md" in args)
             if rec and terms and on_docs:
                 out.append(("terms", terms))
     return list(dict.fromkeys(out))
+
+
+def inside(target, here, arg):
+    """A path argument as the project's own (relative to the root), or None: a path outside the project, or one the shell
+    would expand that jokbo cannot (`$M/README.md`, `${X}`, `$(…)`, backticks — `~` is the home). guin-site 10-15: `grep …
+    $M/README.md`, $M a plugin's install, was answered with the project's own sections on the words it searched."""
+    if re.search(r"[$`]", arg) or (arg.startswith("~") and os.path.expanduser(arg).startswith("~")):
+        return None
+    root = os.path.realpath(target)
+    full = os.path.realpath(os.path.join(here, os.path.expanduser(arg)))   # /var and /private/var are one place
+    if full != root and not full.startswith(root + os.sep):
+        return None
+    return relpath(root, full) if full != root else "."
 
 
 def pattern_terms(pat):
@@ -1292,20 +1486,22 @@ def history_report(target, kind, what):
     idx = index(target)
     if kind == "path":
         q = words(what) + (words(read_text(target, what)) if is_text(target, what) else [])
-        secs = [x for x in idx["sections"] if what in x.get("names", ())][:2] or rank_sections(idx, q, about=what, top=2)
+        naming = sorted((x for x in idx["sections"] if what in x.get("names", ())), key=lambda x: bool(retired_of(idx, x["file"])))
+        secs = naming[:2] or rank_sections(idx, q, about=what, top=2)
         head = "jokbo — what the documents say of %s (`%s \"%s\" file %s` for all):" % (what, PY, engine_path(), what)
         qq = q   # the sentence that shares the file's own words: its name alone is often not in the sentence that explains it
     else:
-        q = qq = words(what)
+        q = qq = query_terms(what)
         secs = rank_sections(idx, q, top=2)
         head = "jokbo — where the project speaks of: %s (`%s \"%s\" find %s` for all):" % (what, PY, engine_path(), what)
     lines = []
     for x in secs:
         said = quote(target, idx, x, qq, least=2 if kind == "path" else 1)
         if said:
-            lines.append("  %s (lines %d-%d, written %s): \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")), said))
+            lines.append("  %s (lines %d-%d, written %s)%s: \u201c%s\u201d" % (x["id"], x["start"], x["end"], when(x.get("changed")),
+                                                                              retired_mark(idx, x["file"]), said))
     if kind == "terms":
-        hits = rank_items([dict(c, words=words(c["subject"])) for c in idx["commits"]], q, 1)
+        hits = rank_items([dict(c, words=query_terms(c["subject"])) for c in idx["commits"]], q, 1)
         lines += ["  commit %s %s — %s" % (when(c["at"]), c["sha"][:7], c["subject"][:200]) for c in hits]
     return [head] + lines if lines else []
 
@@ -1344,7 +1540,7 @@ def session_state(target, session_id):
 
 
 def snapshot(target):
-    """The tree as a session sees it between its calls: HEAD, and every path that differs from it with its status."""
+    """The tree as a session sees it between its calls: HEAD, every path that differs from it with its status, and when."""
     head = (git(target, "rev-parse", "HEAD") or "").strip()
     out = git(target, "status", "--porcelain", "-z", "--untracked-files=all", "--", ".") or ""
     status, parts, i = {}, out.split("\0"), 0
@@ -1355,31 +1551,51 @@ def snapshot(target):
             status[entry[3:]] = entry[:2]
             if entry[0] in "RC" or entry[1] in "RC":
                 i += 1
-    return {"head": head, "status": status}
+    return {"head": head, "status": status, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
-def change_report(target, old, new):
+def record_owners(target):
+    """{plugin: [record path prefixes]} — the lock's `record-paths`."""
+    _, lock = manifest_and_lock(target)
+    owners = lock.get("record-paths")
+    return {k: [q for q in v if isinstance(q, str)] for k, v in owners.items() if isinstance(v, list)} if isinstance(owners, dict) else {}
+
+
+def owner_of(owners, p):
+    return next((plugin for plugin, ps in sorted(owners.items()) for q in ps if p.startswith(q) or p == q.rstrip("/")), None)
+
+
+def change_report(target, old, new, own=()):
     """What changed between two snapshots that this session did not do — another session, a hired worker, the owner:
     commits, and the paths changed, grouped by whose records they are (the lock's `record-paths`; jokbo names no
-    product), documents, and the rest. [] when nothing did."""
-    if not old or old == new:
+    product), by whose hands a product's records say made them (the declared `hands` reads — a hired worker's code edits
+    are still told, the session did not write them, but as that worker's), documents, and the rest. [] when nothing did. `own`: plugins working for this session (own_plugins) — their
+    records, and a commit that writes them, are the session's own."""
+    tree = lambda snap: {k: v for k, v in (snap or {}).items() if k != "at"}
+    if not old or tree(old) == tree(new):
         return []
+    owners = record_owners(target)
+    mine = lambda p: owner_of(owners, p) in own
     paths = {p for p in set(old.get("status", {})) | set(new.get("status", {})) if old.get("status", {}).get(p) != new.get("status", {}).get(p)}
     commits = []
     if old.get("head") and new.get("head") and old["head"] != new["head"]:
-        log = git(target, "log", "--format=%h %s", "%s..%s" % (old["head"], new["head"]), "--") or ""
-        commits = [l for l in log.splitlines() if l.strip()]
-        names = git(target, "diff", "--name-only", "-z", old["head"], new["head"], "--") or ""
-        paths |= {p for p in names.split("\0") if p}
-    paths = {p for p in paths if not p.startswith((CACHE + "/", ".git/"))}
+        log = git(target, "log", "--format=%x01%h %s", "--name-only", "%s..%s" % (old["head"], new["head"]), "--") or ""
+        for entry in log.split("\x01")[1:]:
+            head, _, names = entry.partition("\n")
+            files = [f for f in names.splitlines() if f.strip()]
+            if own and any(mine(f) for f in files):
+                continue   # the engine of a plugin working for the session committed it (its records with the work)
+            commits.append(head.strip())
+            paths |= set(files)
+    paths = {p for p in paths if not p.startswith((CACHE + "/", ".git/")) and not (own and mine(p))}
     if not commits and not paths:
         return []
-    _, lock = manifest_and_lock(target)
-    owners = lock.get("record-paths") if isinstance(lock.get("record-paths"), dict) else {}
+    whose = hands(target, [p for p in paths if not owner_of(owners, p)], old.get("at"))   # a product's records already say whose they are
     groups = collections.OrderedDict()
     for p in sorted(paths):
-        who = next((plugin for plugin, ps in sorted(owners.items()) for q in ps if p.startswith(q) or p == q.rstrip("/")), None)
-        key = ("%s's records" % who) if who else ("documents" if p.lower().endswith(DOC_EXT) else "files")
+        who = owner_of(owners, p)
+        key = ("%s's records" % who) if who else ("changed by %s" % whose[p]) if p in whose \
+            else ("documents" if p.lower().endswith(DOC_EXT) else "files")
         groups.setdefault(key, []).append(p)
     lines = ["jokbo — changed by another hand since this session's last call:"]
     if commits:
@@ -1418,8 +1634,10 @@ def since_start(target, st):
 def tell(target, rels, session_id, why):
     """What a hook says about files the session reads or writes: each file once per session (whichever hook comes first),
     at most FULL told, the rest named; a note, not a report (see note_report). A line is told once per session, whichever
-    file it came with (the same concept's sentence came with eight files); a line about what was committed since the
-    session started is left out (since_start); and when documents name the file outright, one pointer to `file`."""
+    file it came with (the same concept's sentence came with eight files), and a product's line on a file's standing once
+    in its form (guin-site 10-15: "… not registered" with every file the session opened); a line about what was committed
+    since the session started is left out (since_start); and when documents name the file outright in sections the
+    session was not shown, one pointer to `file` (spelled out the first time) — none when what it would add was said."""
     st, path = session_state(target, session_id)
     shown = st.get("shown", [])
     rp = record_paths(target) + (".git/",)
@@ -1427,26 +1645,37 @@ def tell(target, rels, session_id, why):
     if not new:
         return []
     told_lines = set(st.get("told", []))
+    seen = set(st.get("quoted", [])) | set(st.get("noted", []))   # sections whose sentence the session was given
     recent = since_start(target, st)
     lines, told = [], []
+
+    def keep(l, form, section=None):
+        key = l.strip()
+        if key in told_lines or (form and "form:" + form in told_lines) \
+                or (recent and (names_in(l) | set(re.findall(r"\b[0-9a-f]{7,40}\b", l))) & recent):
+            return False
+        told_lines.add(key)
+        if form:
+            told_lines.add("form:" + form)
+        if section:
+            seen.add(section)
+        return True
+
     for rel in new[:FULL]:
         told.append(rel)
-        note = note_report(target, rel)
-        body = []
-        for l in note[1:]:
-            key = l.strip()
-            if key in told_lines or (recent and (names_in(l) | set(re.findall(r"\b[0-9a-f]{7,40}\b", l))) & recent):
-                continue
-            told_lines.add(key)
-            body.append(l)
+        note = note_report(target, rel, keep)
+        body = note[1:]
         if not body:
             continue
-        naming = sum(1 for x in index(target)["sections"] if rel in x.get("names", ()))
-        if naming:
-            body.append("  more: `%s \"%s\" file %s` — %d document section(s) name it" % (PY, engine_path(), rel, naming))
+        naming = [x["id"] for x in index(target)["sections"] if rel in x.get("names", ())]
+        if set(naming) - seen:
+            how = "jokbo `file %s`" % rel if "pointer" in told_lines else "`%s \"%s\" file %s`" % (PY, engine_path(), rel)
+            told_lines.add("pointer")   # the command is spelled out once; the map's ask line has it too
+            body.append("  more: %s — %d document section(s) name it" % (how, len(naming)))
         lines += [note[0]] + body
     st["shown"] = shown + told
     st["told"] = sorted(told_lines)
+    st["noted"] = sorted(seen - set(st.get("quoted", [])))
     save(path, st)
     return lines
 
@@ -1474,6 +1703,76 @@ def agents_in_flight(target, session_id=None, delta=0, reset=False):
             st.pop(sid, None)
         save(path, st)
     return sum(int(v.get("n", 0)) for v in st.values())
+
+
+OWN_WINDOW = 30 * 60   # a plugin the session called is working for it this long after (its children outlive the call)
+
+
+def engine_called(target, tool_name, tool_input):
+    """The plugins with records (the lock's `record-paths`) that this call runs: a shell command naming the engine
+    (`…/NAME.py`, `NAME` as a command) or the host's Skill tool on `NAME:…`. Reading their records (`cat .NAME/…`) is not
+    running them."""
+    names = record_owners(target)
+    if not names or not isinstance(tool_input, dict):
+        return set()
+    if tool_name == "Skill":
+        skill = str(tool_input.get("skill") or "")
+        return {n for n in names if skill.startswith(n + ":")}
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return set()
+    out = {n for n in names if re.search(r"(?<![\w.-])%s\.(?:py|mjs|cjs|js|ts|sh)\b" % re.escape(n), command)}
+    for argv, _ in commands_of(command):
+        out |= {n for n in names if os.path.basename(argv[0]) == n}
+    return out
+
+
+def note_call(target, session_id, payload, ended=False):
+    """A call of this session that runs a plugin's engine: that plugin works for the session — from this call until
+    OWN_WINDOW after its last such call ended, and, when the call was put in the background (Bash `run_in_background`),
+    until the host's notification that it completed (UserPromptSubmit, `<task-notification>` with its tool-use id) or
+    AGENT_STALE. guin-site 10-15: the session's backgrounded `chongdae run` and the provider chongdae left running wrote
+    the run's task records between calls; told as another hand's at two prompts."""
+    plugins = engine_called(target, payload.get("tool_name"), payload.get("tool_input"))
+    if not plugins:
+        return
+    st, path = session_state(target, session_id)
+    now = time.time()
+    working = st.get("working") if isinstance(st.get("working"), dict) else {}
+    working.update({n: now for n in plugins})
+    st["working"] = working
+    if not ended and (payload.get("tool_input") or {}).get("run_in_background") and payload.get("tool_use_id"):
+        bg = st.get("background") if isinstance(st.get("background"), dict) else {}
+        bg[str(payload["tool_use_id"])] = {"plugins": sorted(plugins), "at": now}
+        st["background"] = bg
+    save(path, st)
+
+
+def own_plugins(st, now=None):
+    """The plugins working for this session now (note_call): their record changes are its own."""
+    now = now or time.time()
+    working = st.get("working") if isinstance(st.get("working"), dict) else {}
+    out = {n for n, t in working.items() if isinstance(t, (int, float)) and now - t < OWN_WINDOW}
+    for b in (st.get("background") or {}).values():
+        if isinstance(b, dict) and now - b.get("at", 0) < AGENT_STALE:
+            out |= set(b.get("plugins") or ())
+    return out
+
+
+def background_ended(target, session_id, prompt):
+    """A prompt that is the host's notification of the session's background calls completing: they end now, and what
+    their plugins write from here is the session's for OWN_WINDOW (the notification's own report has counted them)."""
+    ids = set(re.findall(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", prompt or ""))
+    st, path = session_state(target, session_id)
+    bg = st.get("background") if isinstance(st.get("background"), dict) else {}
+    if not ids or not (ids & set(bg)):
+        return
+    now = time.time()
+    working = st.get("working") if isinstance(st.get("working"), dict) else {}
+    for i in ids & set(bg):
+        working.update({n: now for n in bg.pop(i).get("plugins") or ()})
+    st["working"], st["background"] = working, bg
+    save(path, st)
 
 
 def remember(target, session_id, snap=None, reset=False, keep=()):
