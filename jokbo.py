@@ -19,6 +19,7 @@ and a retired one's quote says so. Freshness is git's: a section written before 
 """
 import argparse
 import collections
+from concurrent.futures import ThreadPoolExecutor
 import functools
 import hashlib
 import io
@@ -33,7 +34,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
-INDEX_FORMAT = 7
+INDEX_FORMAT = 8     # 7 clipped a section at its last committed line — its `changed` is rebuilt, with blame
 MIGRATES = (5, 6)  # an index of these formats is brought up to date entry by entry, without blame (5 lacked `level`, `keys`;
                    # 6 a document's `size` and `retired`)
 KEYED = 2          # how a section's match keys are cut (stem, section_keys): a change re-keys the cache, without blame
@@ -370,7 +371,13 @@ def tree_key(target):
     status = git(target, "status", "--porcelain", "--untracked-files=all", "--", ".") or ""
     rp = record_paths(target)
     status = "\n".join(l for l in status.splitlines() if not l[3:].strip().startswith(rp))
-    return hashlib.sha1(("%s\n%s\n%s\n%d" % (version(), head, status, INDEX_FORMAT)).encode("utf-8")).hexdigest()
+    # Porcelain records state, not content: a second edit remains " M" (or "??"). Hash every indexed file rather than
+    # trusting mtimes, which editors can preserve; the complete name set too — it decides unique-basename references.
+    files = listed_files(target)
+    contents = [(p, content_key(target, p, None, False)) for p in files or []
+                if p.lower().endswith(DOC_EXT) or p.endswith(CODE_EXT)]
+    state = [version(), head, status, INDEX_FORMAT, files, contents, settings(target), rp]
+    return hashlib.sha1(json.dumps(state, ensure_ascii=False, sort_keys=True).encode("utf-8", "surrogateescape")).hexdigest()
 
 
 def dirty_paths(target):
@@ -399,10 +406,22 @@ def content_key(target, path, last_commit, dirty):
     return "%s %s %s" % (h, last_commit or "-", "dirty" if dirty else "clean")
 
 
+def blame_documents(target, paths):
+    """Only the changed documents' blame, at most four git processes; input order kept, a git failure is blame_times'
+    empty map, an unexpected exception propagates instead of becoming a successful read."""
+    if len(paths) < 2:
+        return {path: blame_times(target, path) for path in paths}
+    with ThreadPoolExecutor(max_workers=min(4, len(paths))) as pool:
+        return dict(zip(paths, pool.map(lambda path: blame_times(target, path), paths)))
+
+
 def build_index(target, previous=None):
     """The cache: sections of every document (with each one's last change, by blame), the code's own words, recent
     commits. A file whose key is unchanged keeps its previous entry — blame runs only for documents that changed, so an
     edit to one file costs one file's work, not the project's."""
+    # a concurrent edit must not make an older entry look current: a key taken after scanning could label pre-edit
+    # entries with the post-edit fingerprint
+    snapshot_key = tree_key(target)
     files = listed_files(target)
     if files is None:
         raise SystemExit("jokbo: %s is not a git work tree — the base layer is its documents, code and history" % target)
@@ -416,28 +435,39 @@ def build_index(target, previous=None):
     fileset = sorted(files)
     names_key = hashlib.sha1("\n".join(fileset).encode("utf-8", "surrogateescape")).hexdigest()
     base = collections.Counter(os.path.basename(f) for f in files)
+    # compiled once per unique basename: re.search per section/file pair thrashes re's cache in a larger repository
+    name_patterns = {f: re.compile(r"(?<![\w/.-])" + re.escape(os.path.basename(f)) + r"(?![\w-])")
+                     for f in files if base[os.path.basename(f)] == 1 and len(os.path.basename(f)) > 4}
+    keys = {f: content_key(target, f, last.get(f), f in dirty) + (" " + names_key if f.lower().endswith(DOC_EXT) else "")
+            for f in files if f.lower().endswith(DOC_EXT) or f.endswith(CODE_EXT)}
+    blames = blame_documents(target, [f for f in keys if f.lower().endswith(DOC_EXT)
+                                      and old.get(f, {}).get("key") != keys[f] and (f not in dirty or last.get(f))])
     entries = {}
     for f in files:
         is_doc, is_code = f.lower().endswith(DOC_EXT), f.endswith(CODE_EXT)
         if not (is_doc or is_code):
             continue
-        key = content_key(target, f, last.get(f), f in dirty) + (" " + names_key if is_doc else "")
+        key = keys[f]
         if old.get(f, {}).get("key") == key:
             entries[f] = upgrade(target, f, old[f])
             continue
         text = read_text(target, f)
         if is_doc:
-            times = blame_times(target, f) if f not in dirty or last.get(f) else {}
-            end = max(times) if times else 0
+            times = blames.get(f, {})
+            # the file's own lines, not the empty one after its last newline: blame has nothing there, so the last section
+            # of any edited document read as uncommitted
+            held = len(text.split("\n")) - text.endswith("\n")
             secs = []
             for sec in sections_of(f, text):
-                lt = [times.get(i) for i in range(sec["start"], min(sec["end"], end) + 1)]
+                # trailing lines without committed blame count: clipping at the last committed line hid new text
+                # appended to an existing section
+                lt = [times.get(i) for i in range(sec["start"], min(sec["end"], held) + 1)]
                 sec["changed"] = None if f in dirty and any(t is None for t in lt) else max([t for t in lt if t] or [0]) or None
                 sec["words"] = words(sec["heading"] + " " + sec["text"])
                 sec["keys"] = section_keys(sec["words"], sec["text"])
                 # the files it names outright — by path, or by a file name only one file has
-                sec["names"] = sorted(g for g in files if g != f and (g in sec["text"] or (base[os.path.basename(g)] == 1 and len(os.path.basename(g)) > 4
-                                      and re.search(r"(?<![\w/.-])" + re.escape(os.path.basename(g)) + r"(?![\w-])", sec["text"]))))
+                sec["names"] = sorted(g for g in files if g != f and (g in sec["text"] or
+                                      (g in name_patterns and name_patterns[g].search(sec["text"]))))
                 del sec["text"]   # read from the file when shown: the cache keeps positions, the document keeps its words
                 secs.append(sec)
             entries[f] = dict({"key": key, "sections": secs, "keyed": KEYED}, **doc_facts(text, times, f in dirty))
@@ -446,7 +476,7 @@ def build_index(target, previous=None):
             for w in said:
                 w["words"] = words(w["text"])
             entries[f] = {"key": key, "said": said}
-    return {"format": INDEX_FORMAT, "keyed": KEYED, "key": tree_key(target), "built": int(time.time()), "by": "jokbo %s" % version(),
+    return {"format": INDEX_FORMAT, "keyed": KEYED, "key": snapshot_key, "built": int(time.time()), "by": "jokbo %s" % version(),
             "files": files, "entries": entries, "commits": commits}
 
 

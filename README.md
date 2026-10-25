@@ -82,8 +82,9 @@ uncommitted work, and the declared `since` reads. `--mark` records HEAD as looke
 Where the project speaks of something: document sections, the code's own words, commit subjects, and the lines of the
 declared `decision` reads that share the words
 
-`map` and `note PATH` print what the session-start and read hooks say. `index [--rebuild]` builds the cache and says what it holds; every command refreshes it when the tree moved, and only
-for the files that changed (a document is blamed again only when it, or the last commit that touched it, changed).
+`map` and `note PATH` print what the session-start and read hooks say. `index [--rebuild]` builds the cache and says what it holds; every command refreshes it when the tree moved — by
+the files' content, not git's state of them: a second edit to an edited file moves it — and only for the files that
+changed (a document is blamed again only when it, or the last commit that touched it, changed; four at a time).
 
 ## Hooks — a map, a line, a change
 
@@ -161,7 +162,7 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
 
 Each file once per session; a restart, or a compaction, starts over (a compaction keeps where the session started).
 Hook cost on guin-site (73 sections, 500 commits): a prompt ~0.1 s, a search answer 0.1–0.5 s; on 4,868 sections the
-prompt match 0.44 s (a section's match keys are kept in the cache). An older cache is brought up to date without blame. Paths follow the shell's directory; the cache is the project's, at
+prompt match 0.44 s (a section's match keys are kept in the cache). An older cache is brought up to date without blame — but 1.7.0's, whose sections' last change stopped at the last committed line, is blamed once again. Paths follow the shell's directory; the cache is the project's, at
 its root. All silent in a worker session (`AGENT_WORKER=1`) and outside a git work tree; under hunsu's probe
 (`HUNSU_SURVEY=1`) the session-start hook answers its standing text and nothing is written. Context only: never a
 permission decision, never a block.

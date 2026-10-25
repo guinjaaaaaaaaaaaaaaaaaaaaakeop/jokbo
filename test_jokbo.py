@@ -180,6 +180,63 @@ def test_the_cache_is_rebuilt_when_the_tree_moves_and_ignores_itself():
         assert any(s["file"] == "plan/NEW.md" for s in b["sections"]), "an untracked document is read too"
 
 
+def test_a_second_edit_to_an_edited_file_rebuilds_its_entry():
+    """`git status` says a state, not a content: an edited file stays ` M` through every later edit. 1.7.0 keyed the
+    cache on it, so the second edit was answered from the first one's index."""
+    with Repo() as r:
+        jokbo.index(r.dir)
+        plan = r.read("plan/PLAN.md")
+        write(r.p("plan/PLAN.md"), plan + "\nAlpha rule.\n")
+        assert "alpha" in jokbo.index(r.dir)["sections"][-1]["words"]
+        write(r.p("plan/PLAN.md"), plan + "\nOmega rule.\n")
+        words = jokbo.index(r.dir)["sections"][-1]["words"]
+        assert "omega" in words and "alpha" not in words, words
+
+
+def test_an_edit_during_a_build_is_not_labelled_as_read():
+    """The key is taken before the files are read: a file edited while the index is built makes the next read build
+    again. 1.7.0 took it after, so the entry read before the edit carried the key of the tree after it."""
+    with Repo() as r:
+        read, edited = jokbo.read_text, []
+
+        def read_then_edit(target, path, *a, **k):
+            text = read(target, path, *a, **k)
+            if path == "plan/PLAN.md" and not edited:
+                edited.append(path)
+                write(r.p("plan/PLAN.md"), text + "\nLate rule.\n")
+            return text
+        jokbo.read_text = read_then_edit
+        try:
+            first = jokbo.index(r.dir)
+        finally:
+            jokbo.read_text = read
+        assert edited and first["key"] != jokbo.tree_key(r.dir), "the index says the tree it read, not the tree after"
+        assert "late" in jokbo.index(r.dir)["sections"][-1]["words"]
+
+
+def test_text_appended_to_a_section_is_its_change():
+    """A section's last change counts every line it holds: lines past the last committed one are new text, so the section
+    is uncommitted. 1.7.0 stopped at the last committed line and dated the section by its old text."""
+    with Repo() as r:
+        jokbo.index(r.dir)
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\nA new rule at the end.\n")
+        tags = [s for s in jokbo.index(r.dir)["sections"] if s["id"] == "plan/PLAN.md#Q-tags — tagging"]
+        assert tags and tags[0]["changed"] is None, tags
+
+
+def test_an_edit_elsewhere_leaves_the_last_section_dated():
+    """A section another edit did not touch keeps its last change — the last one too: the empty line after a file's final
+    newline has no blame, and counting it said the last section of any edited document was uncommitted."""
+    with Repo() as r:
+        before = {s["id"]: s["changed"] for s in jokbo.index(r.dir)["sections"] if s["file"] == "plan/PLAN.md"}
+        text = r.read("plan/PLAN.md")
+        head, rest = text.split("\n", 1)
+        write(r.p("plan/PLAN.md"), head + " (edited)\n" + rest)
+        after = [s for s in jokbo.index(r.dir)["sections"] if s["file"] == "plan/PLAN.md"]
+        last = after[-1]
+        assert len(after) > 1 and text.endswith("\n") and last["changed"] == before[last["id"]] is not None, (last, before)
+
+
 def test_the_edit_hook_speaks_once_per_file_per_session_and_never_decides():
     with Repo() as r:
         payload = {"cwd": r.dir, "session_id": "s1", "tool_name": "Edit", "tool_input": {"file_path": r.p("src/feed.ts")}}
