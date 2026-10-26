@@ -106,12 +106,18 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   A long line is cut at an item or a word, a list giving up its last items first (`… +2 ; 3 open question(s)`). This is
   the index a session built itself with `grep -n "^#"` at its first question and then read by `sed -n` ranges (guin-site
   10-08) — a line from each product that declares a `map` read (e.g. the
-  net's concepts and open questions), the three questions jokbo answers. Then, in brief, what changed since this machine
+  net's concepts and open questions), the three questions jokbo answers. A workspace that keeps repositories inside it
+  (a directory with its own `.git` that the project's git ignores or leaves untracked) gets one line naming each, where it
+  keeps its documents and how many, with the `map --target DIR` that reads them: their documents are not this index's
+  (sagoforce 10-26: the map listed a README and a vendored reference; the rules asked about were in the repositories'
+  specs). Then, in brief, what changed since this machine
   last looked. Frozen for the session; said again after a compaction (the summary keeps none of it) — without the
   "what changed" part then: a compaction comes mid-answer, and what was committed since is the session's own.
 - **UserPromptSubmit — what the project already says.** When a prompt asks about something the documents say, up to
   three of their sentences, quoted, with section and age, before the session reads the prompt — the moment a question
   arises (guin-site 10-08 → 10-11: about 70 prompts, the reader never asked; the session grepped or answered from memory).
+  A prompt that is the host's report — `<task-notification>`, another session's `<agent-message>` — asks nothing and gets
+  no quotes (sagoforce 10-26: three sub-agent reports were quoted to, the person's own three questions were not).
   Strict, so mostly silent: the sentence shares three of the prompt's words, two of them rare in the documents (in at
   most 15% of the sections), three rare ones or 40% of the prompt's rare words, never under 20% of them. Korean words are
   matched without their particles and one verbal ending (만들어 / 만들기), never cut to one syllable (화면, 로고 are
@@ -158,7 +164,9 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
 - **Stop** marks where this machine last looked and where the session's calls left the tree.
 - A call that fails (PostToolUseFailure) is still the session's own: what it wrote is not told back as another hand's.
   While a sub-agent runs (the host's Agent tool), the change line is silent — siblings' writes are the session's hands,
-  and what they did becomes the session's when the Agent call ends.
+  and what they did becomes the session's when the Agent call ends. A sub-agent the host launched into the background
+  (its call answers at once, `isAsync`) runs until the `<task-notification>` naming the call (sagoforce 10-26: eight fix
+  batches launched so, and their edits were told to the session as another hand's six times).
 
 Each file once per session; a restart, or a compaction, starts over (a compaction keeps where the session started).
 Hook cost on guin-site (73 sections, 500 commits): a prompt ~0.1 s, a search answer 0.1–0.5 s; on 4,868 sections the

@@ -502,6 +502,13 @@ def test_a_prompt_about_what_the_documents_say_is_answered_and_talk_is_not():
         hook("session_start.py", {"cwd": r.dir, "session_id": "p1", "source": "startup"})
         assert "nightly snapshot" in json.loads(hook("prompt.py", payload)[1])["hookSpecificOutput"]["additionalContext"]
         assert hook("prompt.py", payload) == (0, ""), "the same section is not quoted twice in a session"
+        # sagoforce 10-26: a sub-agent's report arriving as a prompt got the quotes the person's own questions did not
+        note = {"cwd": r.dir, "session_id": "p2", "prompt": "<task-notification>\n<task-id>x</task-id>\n<summary>when does the "
+                "nightly snapshot go to the bucket?</summary>\n</task-notification>"}
+        hook("session_start.py", {"cwd": r.dir, "session_id": "p2", "source": "startup"})
+        assert hook("prompt.py", note) == (0, ""), "a host's report asks nothing"
+        assert jokbo.host_notification('Another Claude session sent a message:\n<agent-message from="a1">done</agent-message>')
+        assert not jokbo.host_notification("what does <agent-message> mean here?")
         assert jokbo.stem("페이지를") == "페이지" and jokbo.stem("만들어") == jokbo.stem("만들기") == "만들"
 
 
@@ -679,10 +686,37 @@ def test_a_failed_call_and_a_sub_agents_work_are_the_sessions_own():
         hook("post_tool.py", dict(agent, hook_event_name="PostToolUse"))
         assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1"})[1], "the sub-agent's work is the session's"
         assert jokbo.agents_in_flight(r.dir) == 0
+        # sagoforce 10-26: an Agent call the host launched into the background answers at once; its sub-agent works until
+        # the notification naming the call — until then its edits are the session's, not another hand's
+        bg = dict(agent, tool_use_id="toolu_bg1")
+        hook("pre_tool.py", bg)
+        hook("post_tool.py", dict(bg, hook_event_name="PostToolUse", tool_response={"isAsync": True, "status": "async_launched"}))
+        assert jokbo.agents_in_flight(r.dir) == 1, "launched, not ended"
+        write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// a background sub-agent's\n")
+        assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1", "prompt": "how is it going?"})[1]
+        done = "<task-notification>\n<task-id>a1</task-id>\n<tool-use-id>toolu_bg1</tool-use-id>\n<status>completed</status>\n</task-notification>"
+        assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1", "prompt": done})[1]
+        assert jokbo.agents_in_flight(r.dir) == 0, "its notification ends it"
         jokbo.agents_in_flight(r.dir, "lost", +1)
         assert jokbo.agents_in_flight(r.dir) == 1
         jokbo.save(r.p(".jokbo/agents.json"), {"lost": {"n": 1, "at": time.time() - jokbo.AGENT_STALE - 1}})
         assert jokbo.agents_in_flight(r.dir) == 0, "an Agent call with no end for hours does not silence the change line"
+
+
+def test_the_map_names_the_repositories_inside_a_workspace():
+    """sagoforce 10-26: a workspace of six repositories, all in its `.gitignore`; its map listed the README and a vendored
+    reference, and the rules the person asked about — in the repositories' specs — were read by nothing."""
+    with Repo() as r:
+        write(r.p(".gitignore"), "/engine/\n")
+        eng = r.p("engine")
+        os.makedirs(eng)
+        subprocess.run(["git", "init", "-q"], cwd=eng, check=True)
+        write(os.path.join(eng, "docs", "contract.md"), "# Contract\n\nA cell keeps its rev when the meaning holds.\n")
+        write(os.path.join(eng, "CLAUDE.md"), "# Rules\n")
+        subprocess.run(["git", "add", "-A"], cwd=eng, check=True)
+        m = "\n".join(jokbo.map_report(r.dir))
+        assert "repositories inside, each its own map" in m and "engine (" in m and "docs/" in m and "; 2)" in m, m
+        assert jokbo.nested_line(eng) is None
 
 
 def test_the_map_keeps_the_newest_sections_and_its_size():

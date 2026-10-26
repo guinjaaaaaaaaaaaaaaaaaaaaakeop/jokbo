@@ -22,7 +22,7 @@ def main():
         jokbo.remember(target, p.get("session_id"))
         jokbo.note_call(target, p.get("session_id"), p, ended=True)   # its plugin keeps working for the session a while after
         if p.get("tool_name") in jokbo.AGENT_TOOLS:
-            jokbo.agents_in_flight(target, p.get("session_id"), -1)   # what its sub-agent did is now the session's
+            jokbo.agent_answered(target, p.get("session_id"), p)   # what its sub-agent did is now the session's (a background one's: at its notification)
         if p.get("hook_event_name") == "PostToolUseFailure":
             return 0   # a failed call's writes are still this session's; nothing was read to tell about
         inp = p.get("tool_input") or {}

@@ -1151,6 +1151,35 @@ def doc_order(entries, by_doc):
     return sorted(by_doc, key=lambda f: (-int(doc_recency(by_doc[f]) // 86400), -(entries.get(f, {}).get("size") or 0), f))
 
 
+def nested_repos(target):
+    """The repositories inside the project that its own git does not hold — a directory with its own `.git` that the
+    project's status names as one untracked or ignored entry (`!! engine/`), as a workspace of sibling repositories keeps
+    them. Their documents are not this index's: each is a project of its own."""
+    out = []
+    for entry in (git(target, "status", "--porcelain", "-z", "--ignored=matching", "--untracked-files=normal", "--", ".") or "").split("\0"):
+        if entry[:3] in ("?? ", "!! ") and entry.endswith("/"):
+            path = entry[3:].rstrip("/")
+            if not path.startswith(CACHE) and os.path.exists(os.path.join(target, path, ".git")):
+                out.append(path)
+    return sorted(out)
+
+
+def nested_line(target):
+    """One line for the repositories inside a workspace: where each keeps its documents and how many, and the map that reads
+    them. sagoforce 10-26: the workspace's map listed its README and a vendored reference only, while the rules the person
+    asked about lived in its repositories' specs and contracts — read by nothing until the person asked."""
+    parts = []
+    for n in nested_repos(target):
+        docs = [f for f in (git(os.path.join(target, n), "ls-files", "-z") or "").split("\0") if f.lower().endswith(DOC_EXT)]
+        if not docs:
+            continue
+        where = collections.Counter(f.split("/", 1)[0] + "/" if "/" in f else f for f in docs)
+        parts.append("%s (%s; %d)" % (n, ", ".join(w for w, _ in where.most_common(3)), len(docs)))
+    if not parts:
+        return None
+    return "  repositories inside, each its own map (`%s \"%s\" map --target DIR`): %s" % (PY, engine_path(), ", ".join(parts))
+
+
 def map_report(target):
     """What this project holds and how to ask — not the content. Said at session start (and after a compaction) and frozen
     for the session (a map rewritten mid-session breaks the prompt cache and says things twice): the documents with their
@@ -1181,6 +1210,9 @@ def map_report(target):
         budget -= len(shown)
     if rest:
         lines.append("  other documents (sections, last change): %s" % ", ".join(rest[:8]) + (", +%d more" % (len(rest) - 8) if len(rest) > 8 else ""))
+    inside = nested_line(target)
+    if inside:
+        lines.append(inside)
     for plugin, text, why in overlay(target, "map", {}):
         if text and text.strip():
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
@@ -1735,6 +1767,43 @@ def agents_in_flight(target, session_id=None, delta=0, reset=False):
     return sum(int(v.get("n", 0)) for v in st.values())
 
 
+def host_notification(prompt):
+    """Is this prompt the host telling the session something — a background call or sub-agent finished, another session's
+    message — rather than a person asking? Its words are a report, not a question: sagoforce 10-26, three sub-agent
+    reports got "the project already says" quotes (a git config line, a headless-Chrome command, an upgrade's steps) while
+    the person's own three questions got none."""
+    head = (prompt or "").lstrip()[:200]
+    return bool(re.match(r"<task-notification>|(?:Another Claude session sent a message:\s*)?<agent-message\b", head))
+
+
+def launched_async(payload):
+    """Did this Agent call put its sub-agent in the background? The host answers it at once (`isAsync`, "Async agent
+    launched") and says the sub-agent ended in a later `<task-notification>` naming the call. sagoforce 10-26: eight fix
+    batches launched so; the count fell to zero at launch, and their edits were told to the session as another hand's six
+    times."""
+    if (payload.get("tool_input") or {}).get("run_in_background"):
+        return True
+    r = payload.get("tool_response")
+    if isinstance(r, dict) and (r.get("isAsync") or r.get("status") == "async_launched"):
+        return True
+    return r is not None and "Async agent launched" in json.dumps(r, ensure_ascii=False)
+
+
+def agent_answered(target, session_id, payload):
+    """An Agent call's PostToolUse: its sub-agent's work is now the session's — unless it was launched into the background,
+    when it stays in flight until its notification (background_ended)."""
+    if launched_async(payload) and payload.get("tool_use_id"):
+        st, path = session_state(target, session_id)
+        agents = st.get("async-agents") if isinstance(st.get("async-agents"), dict) else {}
+        now = time.time()
+        agents = {k: v for k, v in agents.items() if isinstance(v, (int, float)) and now - v < AGENT_STALE}
+        agents[str(payload["tool_use_id"])] = now
+        st["async-agents"] = agents
+        save(path, st)
+        return
+    agents_in_flight(target, session_id, -1)
+
+
 OWN_WINDOW = 30 * 60   # a plugin the session called is working for it this long after (its children outlive the call)
 
 
@@ -1794,6 +1863,13 @@ def background_ended(target, session_id, prompt):
     their plugins write from here is the session's for OWN_WINDOW (the notification's own report has counted them)."""
     ids = set(re.findall(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", prompt or ""))
     st, path = session_state(target, session_id)
+    agents = st.get("async-agents") if isinstance(st.get("async-agents"), dict) else {}
+    if ids & set(agents):
+        for i in ids & set(agents):   # a sub-agent put in the background ends here, not when its Agent call answered
+            agents.pop(i)
+            agents_in_flight(target, session_id, -1)
+        st["async-agents"] = agents
+        save(path, st)
     bg = st.get("background") if isinstance(st.get("background"), dict) else {}
     if not ids or not (ids & set(bg)):
         return

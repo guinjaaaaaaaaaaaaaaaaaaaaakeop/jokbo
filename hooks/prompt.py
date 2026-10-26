@@ -21,7 +21,8 @@ def main():
             if st.get("last") and not jokbo.agents_in_flight(target) else []
         jokbo.background_ended(target, p.get("session_id"), p.get("prompt") or "")   # after its report: what it wrote is its own
         st = jokbo.remember(target, p.get("session_id"), now)
-        said, ids = jokbo.prompt_report(target, p.get("prompt") or "", told=st.get("quoted", []))
+        said, ids = ([], []) if jokbo.host_notification(p.get("prompt")) else \
+            jokbo.prompt_report(target, p.get("prompt") or "", told=st.get("quoted", []))   # a host's report asks nothing
         if ids:
             st, path = jokbo.session_state(target, p.get("session_id"))   # read again: a sub-agent's hooks may have written meanwhile
             st["quoted"] = st.get("quoted", []) + [i for i in ids if i not in st.get("quoted", [])]
