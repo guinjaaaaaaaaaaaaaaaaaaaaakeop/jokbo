@@ -204,3 +204,7 @@ of the project, e.g. `["content/"]` for a site's posts.
 ## Self-check
 
 `python3 test_jokbo.py` (standard library only).
+
+Parallel hooks serialize updates to the shared sub-agent count and each session’s state. Atomic file replacement
+keeps readers from seeing partial JSON; the locks also keep simultaneous launches, completions and async call IDs
+from overwriting one another. Compaction retains the outstanding async calls until their notifications arrive.

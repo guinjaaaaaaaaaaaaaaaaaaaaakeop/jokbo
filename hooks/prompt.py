@@ -24,9 +24,10 @@ def main():
         said, ids = ([], []) if jokbo.host_notification(p.get("prompt")) else \
             jokbo.prompt_report(target, p.get("prompt") or "", told=st.get("quoted", []))   # a host's report asks nothing
         if ids:
-            st, path = jokbo.session_state(target, p.get("session_id"))   # read again: a sub-agent's hooks may have written meanwhile
-            st["quoted"] = st.get("quoted", []) + [i for i in ids if i not in st.get("quoted", [])]
-            jokbo.save(path, st)
+            with jokbo.state_lock(jokbo.session_path(target, p.get("session_id"))):
+                st, path = jokbo.session_state(target, p.get("session_id"))   # read again: a sub-agent's hooks may have written meanwhile
+                st["quoted"] = st.get("quoted", []) + [i for i in ids if i not in st.get("quoted", [])]
+                jokbo.save(path, st)
             lines += said
     except (SystemExit, OSError):
         return 0

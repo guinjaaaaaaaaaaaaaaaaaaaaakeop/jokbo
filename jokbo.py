@@ -19,10 +19,12 @@ and a retired one's quote says so. Freshness is git's: a section written before 
 """
 import argparse
 import collections
+import contextlib
 from concurrent.futures import ThreadPoolExecutor
 import functools
 import hashlib
 import io
+import inspect
 import json
 import math
 import os
@@ -31,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = ".jokbo"
@@ -68,10 +71,44 @@ def load(path, default=None):
 
 def save(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = "%s.%d.tmp" % (path, os.getpid())   # hooks of parallel tool calls write at once: each its own temp, then one rename
-    with io.open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(data, fh, ensure_ascii=False)
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with io.open(fd, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(data, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+@contextlib.contextmanager
+def state_lock(path):
+    """Serialize the whole read/update/replace; atomic replacement alone can lose another hook's update."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".lock", "a+b") as fh:
+        if os.name == "nt":
+            import msvcrt
+            if not os.path.getsize(path + ".lock"):
+                fh.write(b"\0")
+                fh.flush()
+            while True:
+                try:
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(.01)
+        else:
+            import fcntl
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(fh, fcntl.LOCK_UN)
 
 
 def git(target, *a):
@@ -1571,6 +1608,23 @@ def history_report(target, kind, what):
 SEARCHES = 2   # searches answered per command
 
 
+def session_path(target, session_id):
+    sid = re.sub(r"[^\w.-]", "_", str(session_id or "no-session"))
+    return os.path.join(cache_dir(target), "sessions", sid + ".json")
+
+
+def session_update(fn):
+    """Protect session fields shared by simultaneous pre/post-tool hooks, including async call IDs."""
+    sig = inspect.signature(fn)
+    @functools.wraps(fn)
+    def wrapped(*args, **kwargs):
+        bound = sig.bind(*args, **kwargs).arguments
+        with state_lock(session_path(bound["target"], bound["session_id"])):
+            return fn(*args, **kwargs)
+    return wrapped
+
+
+@session_update
 def searched(target, session_id, command=None, cwd=None, pattern=None):
     """The history/document searches in a command (or the host's own Grep: `pattern`) that this session has not had
     answered yet: told once per target. A command that cannot be a search costs nothing (no index is loaded)."""
@@ -1595,8 +1649,7 @@ def searched(target, session_id, command=None, cwd=None, pattern=None):
 
 
 def session_state(target, session_id):
-    sid = re.sub(r"[^\w.-]", "_", str(session_id or "no-session"))
-    path = os.path.join(cache_dir(target), "sessions", sid + ".json")
+    path = session_path(target, session_id)
     st = load(path, default={})
     return (st if isinstance(st, dict) else {}), path   # a list was 1.1/1.2's shown-files: a new format starts over
 
@@ -1693,6 +1746,7 @@ def since_start(target, st):
     return out
 
 
+@session_update
 def tell(target, rels, session_id, why):
     """What a hook says about files the session reads or writes: each file once per session (whichever hook comes first),
     at most FULL told, the rest named; a note, not a report (see note_report). A line is told once per session, whichever
@@ -1754,17 +1808,18 @@ def agents_in_flight(target, session_id=None, delta=0, reset=False):
     as another hand's (guin-site, 10-06). Their work becomes the session's when the Agent call ends. A count with no end
     for AGENT_STALE seconds, or a session starting over, clears it, so a missed end cannot silence the change line."""
     path = os.path.join(cache_dir(target), "agents.json")
-    st = load(path)
-    st = {k: v for k, v in st.items() if isinstance(v, dict) and time.time() - v.get("at", 0) < AGENT_STALE}
-    if session_id and (delta or reset):
-        sid = str(session_id)
-        n = 0 if reset else max(0, int(st.get(sid, {}).get("n", 0)) + delta)
-        if n:
-            st[sid] = {"n": n, "at": time.time()}
-        else:
-            st.pop(sid, None)
-        save(path, st)
-    return sum(int(v.get("n", 0)) for v in st.values())
+    with state_lock(path):
+        st = load(path)
+        st = {k: v for k, v in st.items() if isinstance(v, dict) and time.time() - v.get("at", 0) < AGENT_STALE}
+        if session_id and (delta or reset):
+            sid = str(session_id)
+            n = 0 if reset else max(0, int(st.get(sid, {}).get("n", 0)) + delta)
+            if n:
+                st[sid] = {"n": n, "at": time.time()}
+            else:
+                st.pop(sid, None)
+            save(path, st)
+        return sum(int(v.get("n", 0)) for v in st.values())
 
 
 def host_notification(prompt):
@@ -1789,6 +1844,7 @@ def launched_async(payload):
     return r is not None and "Async agent launched" in json.dumps(r, ensure_ascii=False)
 
 
+@session_update
 def agent_answered(target, session_id, payload):
     """An Agent call's PostToolUse: its sub-agent's work is now the session's — unless it was launched into the background,
     when it stays in flight until its notification (background_ended)."""
@@ -1826,6 +1882,7 @@ def engine_called(target, tool_name, tool_input):
     return out
 
 
+@session_update
 def note_call(target, session_id, payload, ended=False):
     """A call of this session that runs a plugin's engine: that plugin works for the session — from this call until
     OWN_WINDOW after its last such call ended, and, when the call was put in the background (Bash `run_in_background`),
@@ -1858,6 +1915,7 @@ def own_plugins(st, now=None):
     return out
 
 
+@session_update
 def background_ended(target, session_id, prompt):
     """A prompt that is the host's notification of the session's background calls completing: they end now, and what
     their plugins write from here is the session's for OWN_WINDOW (the notification's own report has counted them)."""
@@ -1881,6 +1939,7 @@ def background_ended(target, session_id, prompt):
     save(path, st)
 
 
+@session_update
 def remember(target, session_id, snap=None, reset=False, keep=()):
     """Keep where the session's last call left the tree (so what changes between its calls is another hand's). reset: the
     session starts over (what it was told is told again), keeping `keep`."""

@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -692,6 +693,8 @@ def test_a_failed_call_and_a_sub_agents_work_are_the_sessions_own():
         hook("pre_tool.py", bg)
         hook("post_tool.py", dict(bg, hook_event_name="PostToolUse", tool_response={"isAsync": True, "status": "async_launched"}))
         assert jokbo.agents_in_flight(r.dir) == 1, "launched, not ended"
+        hook("session_start.py", {"cwd": r.dir, "session_id": "f1", "source": "compact"})
+        assert "toolu_bg1" in jokbo.session_state(r.dir, "f1")[0]["async-agents"]
         write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// a background sub-agent's\n")
         assert "another hand" not in hook("prompt.py", {"cwd": r.dir, "session_id": "f1", "prompt": "how is it going?"})[1]
         done = "<task-notification>\n<task-id>a1</task-id>\n<tool-use-id>toolu_bg1</tool-use-id>\n<status>completed</status>\n</task-notification>"
@@ -954,6 +957,72 @@ def test_a_hired_workers_edits_are_told_as_its_own_when_a_products_records_say_w
             assert jokbo.change_report(r.dir, old, dict(old, at="later")) == [], "the time alone is not a change"
         finally:
             shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_parallel_hooks_keep_every_agent_count_and_async_call():
+    """Hold one hook after reading state while another enters: updates must read after the first commits."""
+    worker = r'''import sys
+sys.path.insert(0, sys.argv[1])
+import jokbo
+original = jokbo.load
+mode, target, sid, call = sys.argv[2:]
+def gated(path, default=None):
+    result = original(path, default)
+    if path.endswith("agents.json") and mode == "held":
+        print("loaded", flush=True)
+        sys.stdin.readline()
+    return result
+jokbo.load = gated
+print("entering", flush=True)
+if mode in ("held", "count"):
+    jokbo.agents_in_flight(target, sid, +1)
+else:
+    jokbo.agent_answered(target, sid, {"tool_use_id": call, "tool_input": {"run_in_background": True}})
+print("done", flush=True)
+'''
+    for same_session in (False, True):
+        with Repo() as r:
+            def start(mode, sid, call=""):
+                return subprocess.Popen([sys.executable, "-c", worker, HERE, mode, r.dir, sid, call],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            a = start("held", "A")
+            jobs = [a]
+            try:
+                assert a.stdout.readline().strip() == "entering"
+                assert a.stdout.readline().strip() == "loaded"
+                b = start("count", "A" if same_session else "B")
+                jobs.append(b)
+                assert b.stdout.readline().strip() == "entering"
+                finished = threading.Event()
+                def read_done():
+                    b.stdout.readline()
+                    finished.set()
+                reader = threading.Thread(target=read_done, daemon=True)
+                reader.start()
+                assert not finished.wait(.2), "the second update must wait until the first has saved"
+                out, err = a.communicate("continue\n", timeout=10)
+                assert a.returncode == 0, (out, err)
+                reader.join(timeout=10)
+                assert finished.is_set()
+                out, err = b.communicate(timeout=10)
+                assert b.returncode == 0, (out, err)
+                assert jokbo.agents_in_flight(r.dir) == 2
+                jokbo.agents_in_flight(r.dir, "A" if same_session else "B", -1)
+                assert jokbo.agents_in_flight(r.dir) == 1
+                jokbo.agents_in_flight(r.dir, "A", -1)
+                assert jokbo.agents_in_flight(r.dir) == 0
+                # Parallel asynchronous completions retain every call ID in the shared session file.
+                jobs += [start("async", "A", str(i)) for i in range(8)]
+                for proc in jobs[2:]:
+                    out, err = proc.communicate(timeout=10)
+                    assert proc.returncode == 0, (out, err)
+                assert set(jokbo.session_state(r.dir, "A")[0]["async-agents"]) == {str(i) for i in range(8)}
+            finally:
+                for proc in jobs:
+                    if proc.poll() is None:
+                        proc.kill()
+                    proc.communicate()
+
 
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
