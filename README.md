@@ -9,7 +9,14 @@ Measured before it was built (guin-site, five agent sessions): the products' rea
 net was read only after an edit, and run records were read with `cat`. Retrieval did not fail — the moment, the fit and
 the trust did.
 
+Navigation: [Install](#install) · [Shared guidance](#shared-claude-and-codex-guidance) ·
+[Inputs](#what-it-reads) · [Commands](#commands) · [Settings](#settings) · [Limits](#limits) ·
+[Versioning](#versioning) · [Self-check](#self-check)
+
 ## Install
+
+Python **3.11 or later** is required on both hosts. Ensure `python3` on the host's PATH meets this floor;
+the engine, command adapters and hooks use that executable.
 
 ```
 claude plugin marketplace add guinjaaaaaaaaaaaaaaaaaaaaakeop/jokbo
@@ -18,6 +25,25 @@ claude plugin install jokbo@jokbo
 
 Codex: `codex plugin marketplace add guinjaaaaaaaaaaaaaaaaaaaaakeop/jokbo`, `codex plugin add jokbo@jokbo` (the skill
 is `$jokbo:read`).
+
+## Shared Claude and Codex guidance
+
+[AGENTS.md](AGENTS.md) is the common guide for maintaining this source checkout. [CLAUDE.md](CLAUDE.md)
+imports that file for Claude compatibility; edit the shared file when a maintenance rule changes.
+Installing this plugin does not automatically load its source-checkout `AGENTS.md` into the consuming project.
+
+The installed workflow for both hosts is [skills/read/SKILL.md](skills/read/SKILL.md).
+The host manifests ([Claude](.claude-plugin/plugin.json), [Codex](.codex-plugin/plugin.json)) expose that same
+skill directory. The [Claude command adapters](commands/) retain the individual command behavior described below;
+they are not separate copies of the workflow. Host invocation syntax differs, but both use the same Python engine.
+From a source checkout, inspect its arguments with `python3 jokbo.py --help`; when installed, use
+`python3 "/path/to/plugin/jokbo.py" <command> --target "/path/to/project"` with the real paths and command.
+`--target` takes any directory of the project: jokbo resolves it to the top of the enclosing git work tree
+(`git rev-parse --show-toplevel`; a nested repository is its own) and answers from that repository's documents,
+history, cache and declared reads. A subdirectory of a checkout is answered as the whole checkout, so give the
+intended repository root; to try jokbo in isolation, use an independent fixture outside every checkout (its own
+`git init`), not a scratch directory inside one. A directory in no work tree is read as itself.
+Consult the shared skill for the operation and this README for command and host details.
 
 ## What it reads
 
@@ -63,7 +89,8 @@ edited".
 
 ## Commands
 
-`jokbo.py --help` for arguments.
+The `/jokbo:*` entries below are Claude command adapters. Both hosts can use the same Python commands;
+`python3 jokbo.py --help` lists them and `<command> --help` lists arguments.
 
 ### `/jokbo:file`
 
@@ -87,6 +114,12 @@ the files' content, not git's state of them: a second edit to an edited file mov
 changed (a document is blamed again only when it, or the last commit that touched it, changed; four at a time).
 
 ## Hooks — a map, a line, a change
+
+[hooks/hooks.json](hooks/hooks.json) is the Claude adapter; [hooks/codex.json](hooks/codex.json) is the Codex
+adapter declared by `plugin.json` under `extensions.com.openai.hooks`. Both call the same Python hook handlers.
+The behavior below describes those handlers, not a guarantee that a host delivers every event or payload field.
+Codex hook delivery must be checked in the configured host environment; the shared skill and Python CLI remain
+the direct entry points when automatic context is unavailable. Unit tests do not establish live host parity.
 
 What jokbo puts in front of the agent is small and said once; what it answers is computed when asked. Three guin-site
 cycles of pasting ranked section lists and other products' whole output into the context (~130 k characters) changed
@@ -200,6 +233,40 @@ of the project, e.g. `["content/"]` for a site's posts.
 - `find` over a declared `decision` read keeps the lines that share a word and their neighbours; the product's own
   command prints the whole.
 - Sections are Markdown headings only; other document formats are not read yet.
+
+## Versioning
+
+Semver, and a version names one content: changes to code, skills, commands, hooks or documentation
+(including README.md, AGENTS.md and CLAUDE.md) require a version bump before distribution or installation.
+**patch**: fixes or wording changes with existing interfaces unchanged. **minor**: an additive command,
+setting, hook or output field that preserves existing consumers. **major**: incompatible changes to CLI,
+output or declared read contracts consumed by projects or other tools, and dropping a supported Python or host version
+— raising `engines.python` in the manifests, or no longer supporting a Claude Code or Codex version that a published
+release supported. The disposable `.jokbo/` cache
+is not a public record contract; rebuild or migrate it when its internal format changes.
+
+2.0.0 is such a major release: it raised the Python floor of `plugin.json` and `.claude-plugin/plugin.json`
+from 3.9 to 3.11, the floor `.codex-plugin/plugin.json` had declared since 1.0.0, dropping Python 3.9 and 3.10.
+
+### Release and adoption
+
+Documentation and shared instruction edits also need a patch bump when interfaces stay unchanged.
+Keep the version equal in `plugin.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
+and `.claude-plugin/marketplace.json` (both `metadata.version` and this product's `plugins[].version`).
+`.agents/plugins/marketplace.json` currently has no version field; verify its product name and source path,
+but do not invent a version field there.
+
+Before publication, run the relevant checks in **Self-check** for behavior changes; for documentation-only
+changes, verify links, command examples, imports and manifest consistency, plus `git diff --check`.
+Publish the checked commit using this repository's existing release convention. Publication does not update
+consumer installations: update the plugin through the host's supported workflow, reconcile the consuming
+project's declared environment and lock if managed, and start a new host session to apply the installation.
+That reconciliation, and checking that the environment is compatible (worker hosts, reporters, coherence,
+plugin fingerprints), belongs to the consuming project's environment manager and its workflow. jokbo is not
+that manager: it reads and indexes the sources the project declares — documents, history, and the `reads` in
+its lock or `hunsu.json` — and says how current each is; it cannot tell whether an environment matches its lock.
+Report publication, project adoption and live-host verification separately. Refreshing a locally linked
+plugin is not an update procedure for every remote installation.
 
 ## Self-check
 

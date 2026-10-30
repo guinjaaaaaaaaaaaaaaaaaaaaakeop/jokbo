@@ -1,0 +1,10 @@
+{
+  "artifact-type": "chongdae/plan@1",
+  "written_by": "chongdae 1.24.0",
+  "goal": "Resume the jokbo self-host session: review and adopt the owner-authorized prior docs, AGENTS/CLAUDE and Python >=3.11 changes as earlier work, add the missing version policy, and fix repository record hygiene (not a claim that all six project loops are complete)",
+  "kind": "session",
+  "tasks": [],
+  "providers": {
+    "session": "session"
+  }
+}

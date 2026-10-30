@@ -1,0 +1,132 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "containment",
+    "role": "session",
+    "brief": "Containment, machine-local only: set settings.chongdae.commit-records to false in hunsu.local.json (gitignored, never committed), the overlay chongdae's settings() reads over hunsu.json. From then on this run's records, including every worker request and response, are written to .chongdae/ but not committed by the engine. Reason: the previous run's engine commit 9d458a2 on the private, unpushed branch selfhost/env-adoption committed a newbie answer whose tried[].command holds a local absolute path. Limits, stated plainly: this does not fix or rewrite that historical commit, which is preserved as evidence; it does not change hunsu.json, the lock, or any engine; this run's init record (3b8fb35) was committed by the engine before the setting existed (it holds no worker response and no local path); and records written while the setting stands stay uncommitted on disk unless someone commits them deliberately. Normal hooks, gates, the verifier and the reviewer are unchanged.",
+    "closes": [],
+    "needs": [],
+    "checks": [
+      [
+        "python3",
+        "-c",
+        "import sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; s = chongdae.settings('.'); print('settings.chongdae', s); sys.exit(0 if s.get('commit-records') is False else 1)"
+      ]
+    ],
+    "tests": [],
+    "gate": null,
+    "scope": [
+      "hunsu.local.json"
+    ]
+  },
+  "seq": 1,
+  "added": "2026-10-30T08:01:23+00:00",
+  "self-performed": {
+    "instead-of": "implementer",
+    "why": "a machine-local setting in hunsu's ignored overlay file, written before any worker is called; a hired builder would itself produce the worker response this setting must contain",
+    "by": {
+      "agent": "claude-code claude-opus-5-5"
+    },
+    "at": "2026-10-30T08:01:23+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "checks-passed": {
+    "ran": [
+      {
+        "command": "python3 -c 'import sys; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; s = chongdae.settings('\"'\"'.'\"'\"'); print('\"'\"'settings.chongdae'\"'\"', s); sys.exit(0 if s.get('\"'\"'commit-records'\"'\"') is False else 1)'",
+        "exit": 0,
+        "tail": [
+          "settings.chongdae {'commit-records': False}"
+        ],
+        "at": "2026-10-30T08:01:45+00:00",
+        "chongdae": "chongdae 1.24.0"
+      }
+    ],
+    "at": "2026-10-30T08:01:45+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "review": {
+    "artifact-type": "dwitbuk/review@1",
+    "verdict": "accept",
+    "findings": [],
+    "worker": {
+      "host": "claude-code",
+      "model": "claude-opus-5-5",
+      "turns": 5,
+      "cost_usd": 0.041310400000000004
+    }
+  },
+  "verdict-given": {
+    "at": "2026-10-30T08:01:54+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "reviewed_tree": {
+    ".claude-plugin/plugin.json": "3c81cafe3cc8d09a97d3715e57e7e67ace25356f",
+    "README.md": "0460547bbef3f50f928babcf31b6235e7d81c45c",
+    "plugin.json": "0bc7df9adc7ec4344278591aa34a52ec06d66ec7",
+    "AGENTS.md": "748b7ef1e5393ef4045b80e5ba5d41b1ca7a7bbf",
+    "CLAUDE.md": "c140473a3a5fbe89301c99d9d0d1b76c5971f2c3"
+  },
+  "verified_by": {
+    "provider": "command",
+    "argv": [
+      "python3",
+      "{plugin:dwitbuk}/eyes_worker.py",
+      "--request",
+      "{request}",
+      "--response",
+      "{response}",
+      "--host",
+      "claude"
+    ],
+    "host": "claude-code",
+    "model": "claude-opus-5-5",
+    "turns": 5,
+    "cost_usd": 0.041310400000000004,
+    "versions": {
+      "used": {
+        "dwitbuk": "1.16.0",
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 0,
+      "commands-failed": 0
+    }
+  },
+  "checks": [
+    [
+      "python3",
+      "-c",
+      "import sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; s = chongdae.settings('.'); print('settings.chongdae', s); sys.exit(0 if s.get('commit-records') is False else 1)"
+    ]
+  ],
+  "touched": [],
+  "performed_by": {
+    "provider": "session",
+    "host": "claude-code",
+    "agent": "claude-code_2-1-314_agent",
+    "effort": "xhigh",
+    "model": "claude-opus-5-5",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [
+        "edit ./hunsu.local.json"
+      ],
+      "commands-run": 2,
+      "command-lines": "kept in the local session transcript, not in the record",
+      "window-from": "2026-10-30T08:01:23+00:00"
+    }
+  },
+  "done": {
+    "at": "2026-10-30T08:01:54+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

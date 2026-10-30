@@ -1,0 +1,207 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "version-policy",
+    "role": "session",
+    "brief": "NEW work by this run (separate from the adopted prior work in task prior-adoption): add the missing version policy to README.md's Versioning section, as the owner specified. (1) **major** also covers dropping a supported Python or host version: raising engines.python in the manifests, or no longer supporting a Claude Code or Codex version that a published release supported. (2) State the pending case: the adopted floor change moves plugin.json and .claude-plugin/plugin.json from Python 3.9 to 3.11 (the floor .codex-plugin/plugin.json has declared since 1.0.0), which drops 3.9 and 3.10, so any release that contains it is the next major (2.0.0). No version is bumped now: the five version fields stay 1.8.1. Only the Versioning section of README.md changes; 'Release and adoption' and every other file stay as adopted.",
+    "closes": [],
+    "needs": [],
+    "checks": [
+      [
+        "python3",
+        "-c",
+        "import re, sys; s = open('README.md').read(); v = s[s.index('## Versioning'):s.index('### Release and adoption')]; a = re.search(r'\\*\\*major\\*\\*:[^*]*dropping a supported Python or host version', v) is not None; b = all(w in v for w in ('3.9', '3.10', '3.11', '2.0.0')); print('major covers dropping a Python/host version:', a, '| pending floor note (3.9/3.10 -> 3.11, 2.0.0):', b); sys.exit(0 if a and b else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import json, sys; L = lambda p: json.load(open(p)); mk = L('.claude-plugin/marketplace.json'); v = [L(p)['version'] for p in ('plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json')] + [mk['metadata']['version']] + [p['version'] for p in mk['plugins'] if p['name'] == 'jokbo']; print('versions (no bump):', v); sys.exit(0 if set(v) == {'1.8.1'} else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import re, subprocess, sys; d = subprocess.run(['git', 'diff', '-U0', '4ad94e7', '--', '.', ':(exclude).chongdae'], capture_output=True, text=True).stdout; files = re.findall(r'^\\+\\+\\+ b/(.+)$', d, re.M); new = open('README.md').read().split('\\n'); lo = new.index('## Versioning') + 1; hi = new.index('### Release and adoption') + 1; hunks = [(int(a), int(b) if b else 1) for a, b in re.findall(r'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@', d, re.M)]; ok = files == ['README.md'] and bool(hunks) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in hunks); print('changed since 4ad94e7:', files, '| hunks (start, len):', hunks, '| all inside Versioning lines', lo, '-', hi - 1, ':', ok); sys.exit(0 if ok else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import os, re, sys; fence = lambda s: re.sub(r'(?ms)^\\`\\`\\`.*?^\\`\\`\\`', '', s); slug = lambda h: re.sub(r'[^\\w\\- ]', '', h.strip().lower()).replace(' ', '-'); heads = lambda f: {slug(m) for m in re.findall(r'^#+ +(.+?) *$', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('README.md', 'AGENTS.md') for l in re.findall(r'\\]\\(([^)\\s]+)\\)', fence(open(f).read())) if not l.startswith(('http://', 'https://', 'mailto:'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('#')[0]) if l.partition('#')[0] else f; bad = [f + ' -> ' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('#')[2] and l.partition('#')[2] not in heads(tgt(f, l)))]; imp = open('CLAUDE.md').read() == '@AGENTS.md\\n'; print('relative links checked:', len(links), '| broken:', bad, '| CLAUDE.md is only the AGENTS.md import:', imp); sys.exit(0 if links and not bad and imp else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import subprocess, sys; a = subprocess.run(['git', 'diff', '--check', '4ad94e7', '--', 'README.md'], capture_output=True, text=True); print('git diff --check README.md exit', a.returncode, a.stdout[:200]); sys.exit(a.returncode)"
+      ]
+    ],
+    "tests": [],
+    "gate": null,
+    "domain": "code",
+    "scope": [
+      "README.md"
+    ]
+  },
+  "seq": 3,
+  "added": "2026-10-30T08:07:18+00:00",
+  "self-performed": {
+    "instead-of": "implementer",
+    "why": "a two-sentence documentation change to the Versioning section, written as the owner specified it; its checks and the verifier read it, and hiring a builder for it costs more than the change",
+    "by": {
+      "agent": "claude-code claude-opus-5-5"
+    },
+    "at": "2026-10-30T08:07:18+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "checks-passed": {
+    "ran": [
+      {
+        "command": "python3 -c 'import re, sys; s = open('\"'\"'README.md'\"'\"').read(); v = s[s.index('\"'\"'## Versioning'\"'\"'):s.index('\"'\"'### Release and adoption'\"'\"')]; a = re.search(r'\"'\"'\\*\\*major\\*\\*:[^*]*dropping a supported Python or host version'\"'\"', v) is not None; b = all(w in v for w in ('\"'\"'3.9'\"'\"', '\"'\"'3.10'\"'\"', '\"'\"'3.11'\"'\"', '\"'\"'2.0.0'\"'\"')); print('\"'\"'major covers dropping a Python/host version:'\"'\"', a, '\"'\"'| pending floor note (3.9/3.10 -> 3.11, 2.0.0):'\"'\"', b); sys.exit(0 if a and b else 1)'",
+        "exit": 0,
+        "tail": [
+          "major covers dropping a Python/host version: True | pending floor note (3.9/3.10 -> 3.11, 2.0.0): True"
+        ],
+        "at": "2026-10-30T08:07:59+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import json, sys; L = lambda p: json.load(open(p)); mk = L('\"'\"'.claude-plugin/marketplace.json'\"'\"'); v = [L(p)['\"'\"'version'\"'\"'] for p in ('\"'\"'plugin.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'.codex-plugin/plugin.json'\"'\"')] + [mk['\"'\"'metadata'\"'\"']['\"'\"'version'\"'\"']] + [p['\"'\"'version'\"'\"'] for p in mk['\"'\"'plugins'\"'\"'] if p['\"'\"'name'\"'\"'] == '\"'\"'jokbo'\"'\"']; print('\"'\"'versions (no bump):'\"'\"', v); sys.exit(0 if set(v) == {'\"'\"'1.8.1'\"'\"'} else 1)'",
+        "exit": 0,
+        "tail": [
+          "versions (no bump): ['1.8.1', '1.8.1', '1.8.1', '1.8.1', '1.8.1']"
+        ],
+        "at": "2026-10-30T08:07:59+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import re, subprocess, sys; d = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'-U0'\"'\"', '\"'\"'4ad94e7'\"'\"', '\"'\"'--'\"'\"', '\"'\"'.'\"'\"', '\"'\"':(exclude).chongdae'\"'\"'], capture_output=True, text=True).stdout; files = re.findall(r'\"'\"'^\\+\\+\\+ b/(.+)$'\"'\"', d, re.M); new = open('\"'\"'README.md'\"'\"').read().split('\"'\"'\\n'\"'\"'); lo = new.index('\"'\"'## Versioning'\"'\"') + 1; hi = new.index('\"'\"'### Release and adoption'\"'\"') + 1; hunks = [(int(a), int(b) if b else 1) for a, b in re.findall(r'\"'\"'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@'\"'\"', d, re.M)]; ok = files == ['\"'\"'README.md'\"'\"'] and bool(hunks) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in hunks); print('\"'\"'changed since 4ad94e7:'\"'\"', files, '\"'\"'| hunks (start, len):'\"'\"', hunks, '\"'\"'| all inside Versioning lines'\"'\"', lo, '\"'\"'-'\"'\"', hi - 1, '\"'\"':'\"'\"', ok); sys.exit(0 if ok else 1)'",
+        "exit": 0,
+        "tail": [
+          "changed since 4ad94e7: ['README.md'] | hunks (start, len): [(238, 3), (243, 4)] | all inside Versioning lines 232 - 246 : True"
+        ],
+        "at": "2026-10-30T08:07:59+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import os, re, sys; fence = lambda s: re.sub(r'\"'\"'(?ms)^\\`\\`\\`.*?^\\`\\`\\`'\"'\"', '\"'\"''\"'\"', s); slug = lambda h: re.sub(r'\"'\"'[^\\w\\- ]'\"'\"', '\"'\"''\"'\"', h.strip().lower()).replace('\"'\"' '\"'\"', '\"'\"'-'\"'\"'); heads = lambda f: {slug(m) for m in re.findall(r'\"'\"'^#+ +(.+?) *$'\"'\"', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('\"'\"'README.md'\"'\"', '\"'\"'AGENTS.md'\"'\"') for l in re.findall(r'\"'\"'\\]\\(([^)\\s]+)\\)'\"'\"', fence(open(f).read())) if not l.startswith(('\"'\"'http://'\"'\"', '\"'\"'https://'\"'\"', '\"'\"'mailto:'\"'\"'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('\"'\"'#'\"'\"')[0]) if l.partition('\"'\"'#'\"'\"')[0] else f; bad = [f + '\"'\"' -> '\"'\"' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('\"'\"'#'\"'\"')[2] and l.partition('\"'\"'#'\"'\"')[2] not in heads(tgt(f, l)))]; imp = open('\"'\"'CLAUDE.md'\"'\"').read() == '\"'\"'@AGENTS.md\\n'\"'\"'; print('\"'\"'relative links checked:'\"'\"', len(links), '\"'\"'| broken:'\"'\"', bad, '\"'\"'| CLAUDE.md is only the AGENTS.md import:'\"'\"', imp); sys.exit(0 if links and not bad and imp else 1)'",
+        "exit": 0,
+        "tail": [
+          "relative links checked: 19 | broken: [] | CLAUDE.md is only the AGENTS.md import: True"
+        ],
+        "at": "2026-10-30T08:07:59+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import subprocess, sys; a = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--check'\"'\"', '\"'\"'4ad94e7'\"'\"', '\"'\"'--'\"'\"', '\"'\"'README.md'\"'\"'], capture_output=True, text=True); print('\"'\"'git diff --check README.md exit'\"'\"', a.returncode, a.stdout[:200]); sys.exit(a.returncode)'",
+        "exit": 0,
+        "tail": [
+          "git diff --check README.md exit 0"
+        ],
+        "at": "2026-10-30T08:07:59+00:00",
+        "chongdae": "chongdae 1.24.0"
+      }
+    ],
+    "at": "2026-10-30T08:08:00+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "review": {
+    "artifact-type": "dwitbuk/review@1",
+    "verdict": "accept",
+    "findings": [],
+    "worker": {
+      "host": "claude-code",
+      "model": "claude-opus-5-5",
+      "turns": 3,
+      "cost_usd": 0.0708554
+    }
+  },
+  "verdict-given": {
+    "at": "2026-10-30T08:08:06+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "reviewed_tree": {
+    "README.md": "661ceba55d4da5e6e9cd0e6b5792f9d64b9698a8"
+  },
+  "verified_by": {
+    "provider": "command",
+    "argv": [
+      "python3",
+      "{plugin:dwitbuk}/eyes_worker.py",
+      "--request",
+      "{request}",
+      "--response",
+      "{response}",
+      "--host",
+      "claude"
+    ],
+    "host": "claude-code",
+    "model": "claude-opus-5-5",
+    "turns": 3,
+    "cost_usd": 0.0708554,
+    "versions": {
+      "used": {
+        "dwitbuk": "1.16.0",
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 0,
+      "commands-failed": 0
+    }
+  },
+  "checks": [
+    [
+      "python3",
+      "-c",
+      "import re, sys; s = open('README.md').read(); v = s[s.index('## Versioning'):s.index('### Release and adoption')]; a = re.search(r'\\*\\*major\\*\\*:[^*]*dropping a supported Python or host version', v) is not None; b = all(w in v for w in ('3.9', '3.10', '3.11', '2.0.0')); print('major covers dropping a Python/host version:', a, '| pending floor note (3.9/3.10 -> 3.11, 2.0.0):', b); sys.exit(0 if a and b else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, sys; L = lambda p: json.load(open(p)); mk = L('.claude-plugin/marketplace.json'); v = [L(p)['version'] for p in ('plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json')] + [mk['metadata']['version']] + [p['version'] for p in mk['plugins'] if p['name'] == 'jokbo']; print('versions (no bump):', v); sys.exit(0 if set(v) == {'1.8.1'} else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import re, subprocess, sys; d = subprocess.run(['git', 'diff', '-U0', '4ad94e7', '--', '.', ':(exclude).chongdae'], capture_output=True, text=True).stdout; files = re.findall(r'^\\+\\+\\+ b/(.+)$', d, re.M); new = open('README.md').read().split('\\n'); lo = new.index('## Versioning') + 1; hi = new.index('### Release and adoption') + 1; hunks = [(int(a), int(b) if b else 1) for a, b in re.findall(r'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@', d, re.M)]; ok = files == ['README.md'] and bool(hunks) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in hunks); print('changed since 4ad94e7:', files, '| hunks (start, len):', hunks, '| all inside Versioning lines', lo, '-', hi - 1, ':', ok); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import os, re, sys; fence = lambda s: re.sub(r'(?ms)^\\`\\`\\`.*?^\\`\\`\\`', '', s); slug = lambda h: re.sub(r'[^\\w\\- ]', '', h.strip().lower()).replace(' ', '-'); heads = lambda f: {slug(m) for m in re.findall(r'^#+ +(.+?) *$', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('README.md', 'AGENTS.md') for l in re.findall(r'\\]\\(([^)\\s]+)\\)', fence(open(f).read())) if not l.startswith(('http://', 'https://', 'mailto:'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('#')[0]) if l.partition('#')[0] else f; bad = [f + ' -> ' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('#')[2] and l.partition('#')[2] not in heads(tgt(f, l)))]; imp = open('CLAUDE.md').read() == '@AGENTS.md\\n'; print('relative links checked:', len(links), '| broken:', bad, '| CLAUDE.md is only the AGENTS.md import:', imp); sys.exit(0 if links and not bad and imp else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; a = subprocess.run(['git', 'diff', '--check', '4ad94e7', '--', 'README.md'], capture_output=True, text=True); print('git diff --check README.md exit', a.returncode, a.stdout[:200]); sys.exit(a.returncode)"
+    ]
+  ],
+  "touched": [
+    "README.md"
+  ],
+  "performed_by": {
+    "provider": "session",
+    "host": "claude-code",
+    "agent": "claude-code_2-1-314_agent",
+    "effort": "xhigh",
+    "model": "claude-opus-5-5",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [
+        "edit ./README.md"
+      ],
+      "commands-run": 4,
+      "command-lines": "kept in the local session transcript, not in the record",
+      "window-from": "2026-10-30T08:07:18+00:00"
+    }
+  },
+  "done": {
+    "at": "2026-10-30T08:08:06+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

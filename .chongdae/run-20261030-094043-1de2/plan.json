@@ -1,0 +1,10 @@
+{
+  "artifact-type": "chongdae/plan@1",
+  "written_by": "chongdae 1.24.0",
+  "goal": "Prepare the jokbo 2.0.0 CANDIDATE: set the five version values to 2.0.0, keep Python >=3.11, make the README floor-change statement timeless, and verify the candidate on Python 3.11. No tag, push, release or install; the released 1.x engines keep managing it",
+  "kind": "session",
+  "tasks": [],
+  "providers": {
+    "session": "session"
+  }
+}

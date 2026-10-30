@@ -1,0 +1,10 @@
+{
+  "artifact-type": "chongdae/plan@1",
+  "written_by": "chongdae 1.24.0",
+  "goal": "Continue the owner-authorized self-hosting proof in jokbo: correct and verify the self-management environment (environment adoption — not a claim that all six project loops are complete)",
+  "kind": "session",
+  "tasks": [],
+  "providers": {
+    "session": "session"
+  }
+}

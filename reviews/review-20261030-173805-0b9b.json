@@ -1,0 +1,150 @@
+{
+  "artifact-type": "dwitbuk/review@1",
+  "id": "review-20261030-173805-0b9b",
+  "since": "acff247cfd02a9605c137e404eba23c1bf918f17",
+  "head": "56444b430d5e5d308f92a92c3cdf172d1a720723",
+  "findings": [
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['working toward a stated goal or carrying out a plan']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['reviewing, disputing or testing a change']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['asking what happened, what is open or what changed']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-083444-dd10/adoption-boundary",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): documentation only: a few README sentences that state the reader's boundary as the source already draws it; no runtime change, and a hired builder would only retype a sentence the checks and verifier read anyway",
+      "layer": "observation"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-083444-dd10/target-resolution",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): documentation only: a few README sentences stating the --target resolution the code already performs; no runtime change, and a hired builder would only retype a sentence the checks and verifier read anyway",
+      "layer": "observation"
+    },
+    {
+      "kind": "unchanged",
+      "layer": "observation",
+      "where": "1 earlier review(s)",
+      "seen-in": [
+        "review-20261030-171225-0c89"
+      ],
+      "text": "6 observation(s) written in full in 1 earlier review(s) and unchanged since (self-performed 4, session-judged 1, verifier-non-claim 1)"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "surprise @ : The README does not explain that the target directory is resolved to an enclosing repository. — “when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.”",
+      "carries": [
+        "stage-finding",
+        "run-20261030-063525-2d81/environment (newbie, after)",
+        "surprise @ : The README does not explain that the target directory is resolved to an enclosing repository. — “when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.”"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/3",
+      "disposition": {
+        "as": "accepted",
+        "delegated": "No person read this finding. Basis: run-20261030-083444-dd10 task target-resolution added a README note (commit e0aa826) saying --target resolves to the enclosing git work tree's top, with documents, history, cache and declared reads read from there, and that the reader should give the intended repository root or use an independent fixture. Its checks ran the resolver on an independent temp fixture (subdirectory -> enclosing repo, its declared read run with that root, nested repo its own). The declared Claude verifier opened jokbo.py and hooks/_common.py and accepted. The resolver was not changed, and the original Codex answer stays as recorded. Disposed under the owner's standing authorization for these fixes.",
+        "by": null,
+        "finding_text": "surprise @ : The README does not explain that the target directory is resolved to an enclosing repository. — “when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.”",
+        "where": "run-20261030-063525-2d81/environment (newbie, after)",
+        "quote": "`--target` takes any directory of the project: jokbo resolves it to the top of the enclosing git work tree"
+      }
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "unclear @ : Following this instruction did not provide a way to verify the environment adoption requested by the goal. — “reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.”",
+      "carries": [
+        "stage-finding",
+        "run-20261030-063525-2d81/environment (newbie, after)",
+        "unclear @ : Following this instruction did not provide a way to verify the environment adoption requested by the goal. — “reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.”"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/4",
+      "disposition": {
+        "as": "accepted",
+        "delegated": "No person read this finding. Basis: run-20261030-083444-dd10 task adoption-boundary added README sentences (commit 56444b4) after the adopted reconcile sentence. They say reconciliation and environment-compatibility checks (worker hosts, reporters, coherence, plugin fingerprints) belong to the consuming project's environment manager and its workflow, and that jokbo reads and indexes declared sources and cannot tell whether an environment matches its lock. That is the reader's boundary; jokbo does not verify adoption. Its checks confirmed against source that jokbo reads only 'reads' and 'record-paths' from the lock, imports no sibling plugin, and has no verifying command. The declared Claude verifier opened jokbo.py and accepted. The original Codex answer stays as recorded. Disposed under the owner's standing authorization for these fixes.",
+        "by": null,
+        "finding_text": "unclear @ : Following this instruction did not provide a way to verify the environment adoption requested by the goal. — “reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.”",
+        "where": "run-20261030-063525-2d81/environment (newbie, after)",
+        "quote": "that manager: it reads and indexes the sources the project declares"
+      }
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "no check decides this task  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "no check decides this task"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/11"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/12"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "no session transcript here: what the session did for this task is its word alone  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "no session transcript here: what the session did for this task is its word alone"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/13"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers.  [task env]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers."
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/14"
+    }
+  ]
+}

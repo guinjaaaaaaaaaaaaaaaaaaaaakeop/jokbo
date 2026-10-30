@@ -1,0 +1,103 @@
+{
+  "artifact-type": "dwitbuk/review@1",
+  "id": "review-20261030-184548-2ea1",
+  "since": "56444b430d5e5d308f92a92c3cdf172d1a720723",
+  "head": "6a8edfe353c5a91dc01533a56910f22edcc0fdb0",
+  "findings": [
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['working toward a stated goal or carrying out a plan']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['reviewing, disputing or testing a change']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['asking what happened, what is open or what changed']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-094043-1de2/v2-candidate",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): release-preparation metadata and one documentation paragraph: five version strings and a timeless restatement of a change already made; no code, so a hired builder would only retype values the checks and verifier read",
+      "layer": "observation"
+    },
+    {
+      "kind": "unchanged",
+      "layer": "observation",
+      "where": "2 earlier review(s)",
+      "seen-in": [
+        "review-20261030-171225-0c89",
+        "review-20261030-173805-0b9b"
+      ],
+      "text": "8 observation(s) written in full in 2 earlier review(s) and unchanged since (self-performed 6, session-judged 1, verifier-non-claim 1)"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "no check decides this task  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "no check decides this task"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/11"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/12"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "no session transcript here: what the session did for this task is its word alone  [task provenance]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "no session transcript here: what the session did for this task is its word alone"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/13"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "run-20261030-063525-2d81",
+      "text": "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers.  [task env]",
+      "carries": [
+        "non-claim",
+        "run-20261030-063525-2d81",
+        "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers."
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-171225-0c89/14"
+    }
+  ]
+}

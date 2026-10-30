@@ -1,0 +1,109 @@
+{
+  "artifact-type": "chongdae/request@1",
+  "written_by": "chongdae 1.24.0",
+  "stage": "verify",
+  "run": "run-20261030-063525-2d81",
+  "task": "environment",
+  "role": "verifier",
+  "target": ".",
+  "goal": "Continue the owner-authorized self-hosting proof in jokbo: correct and verify the self-management environment (environment adoption — not a claim that all six project loops are complete)",
+  "brief": "The same work as dropped task 'env' (mis-specified check; see its reason), now decided by corrected checks. In hunsu.json, then 'hunsu lock' from this Claude session (lock host claude-code): (1) roles.coherence and reporters hunsu/chongdae/mangsang use '--target .', not '--target {target}'. The released chongdae and dwitbuk resolve_argv expand only {plugin:NAME} (plus {since} for reporters and {base} for coherence) and run with cwd=project. Reporter {since} stays. (2) Worker roles are explicit released argv with --host, the owner's delegated routine choice; models stay host defaults. implementer: hacheong --member dakdol --host codex. newbie: --member chojja --host codex. nitpick: --member teujip --host claude. quibble: --member sibi --host claude. verifier: dwitbuk eyes_worker.py --host claude. reviewer unchanged. No capability alternate names a host. (3) Acknowledged, not hidden: released hunsu 1.15.1's fingerprint counts Codex's .codex-marketplace-install.json, so 'AGENT_HOST=codex hunsu check' exits 1 for hunsu, mangsang and jokbo. Without that file the Codex copies equal the lock. No metadata removed, no --take-content, no Codex-host lock, no claim that the Codex host environment passes. Non-claims: hunsu judges role prompts as '--prompt-only' gives them, which is always the Claude variant, so the 'Where you run' text a Codex implementer or newbie actually receives was not judged. Coherence cannot yet be told apart from its broken form here (no mangsang net). Checks: hunsu check (Claude view) exits 0; the lock's reporters all answer dwitbuk/findings@1 through dwitbuk's released collect; the lock's coherence argv has no {target} and exits 0 through chongdae's resolve_argv; the worker hosts are as assigned, no {target} is left, and every worker argv resolves (--prompt-only exits 0).",
+  "closes": [],
+  "contract": {},
+  "checks": [
+    [
+      "python3",
+      "{plugin:hunsu}/hunsu.py",
+      "check",
+      "--target",
+      "."
+    ],
+    [
+      "python3",
+      "-c",
+      "import sys; sys.path.insert(0, '{plugin:dwitbuk}'); import dwitbuk; f, r, h = dwitbuk.collect('.', None); bad = [x['text'][:90] for x in f if x['kind'] == 'reporter-failed']; print('reporters', r, 'answered dwitbuk/findings@1:', sorted(h), 'failed:', bad); sys.exit(1 if bad or sorted(h) != r else 0)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, subprocess, sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; a = json.load(open('hunsu.lock.json'))['roles']['coherence']; print('coherence', a[2:]); sys.exit(1 if '{target}' in a else subprocess.run(chongdae.resolve_argv('.', a), cwd='.').returncode)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, os, subprocess, sys, tempfile; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; L = json.load(open('hunsu.lock.json')); R = L['roles']; want = {'implementer': 'codex', 'newbie': 'codex', 'nitpick': 'claude', 'quibble': 'claude', 'verifier': 'claude'}; stage = {'implementer': 'build', 'verifier': 'verify'}; got = {k: R[k][R[k].index('--host') + 1] for k in want}; left = sorted(k for k, v in list(R.items()) + list(L['reporters'].items()) if isinstance(v, list) and '{target}' in v); d = tempfile.mkdtemp(); req = lambda k: json.dump({'artifact-type': 'chongdae/request@1', 'stage': stage.get(k, k), 'run': 'check', 'task': 'sample', 'role': k, 'target': os.path.abspath('.'), 'goal': 'g', 'brief': 'b', 'closes': [], 'contract': {}, 'checks': [], 'response': 'r'}, open(os.path.join(d, k + '.json'), 'w')); [req(k) for k in want]; codes = {k: subprocess.run(chongdae.resolve_argv('.', [a.replace('{request}', os.path.join(d, k + '.json')).replace('{response}', os.path.join(d, k + '.out.json')) for a in R[k]]) + ['--prompt-only'], cwd='.', capture_output=True).returncode for k in want}; print('hosts', got, '| {target} left in', left, '| --prompt-only exits', codes); sys.exit(0 if got == want and not left and not any(codes.values()) else 1)"
+    ]
+  ],
+  "tests": [],
+  "domain": "code",
+  "response": "./.chongdae/run-20261030-063525-2d81/local/environment.verify.response.json",
+  "touched": [
+    "hunsu.json",
+    "hunsu.lock.json"
+  ],
+  "built": null,
+  "excluded": {
+    "record-paths": [
+      ".claude/settings.json",
+      "hunsu-judgments.json"
+    ]
+  },
+  "attribution": {
+    "adopted": [
+      "hunsu.json",
+      "hunsu.lock.json"
+    ]
+  },
+  "since": {
+    ".": "619ec49d13e4f43635332a3fd3c1c4fafeaa147b"
+  },
+  "checked": [
+    {
+      "command": "python3 '{plugin:hunsu}/hunsu.py' check --target .",
+      "exit": 0,
+      "tail": [
+        "info  4 finding(s) settled by the members' own text (sequenced / not co-active / duplicate, each on a verified sentence) — no resolution needed; see hunsu-conflicts.md",
+        "  (offline: a release is known here only from this machine's marketplace copies — `hunsu outdated` asks the marketplaces, read-only)",
+        "errors 0 · warnings 0 · info 1"
+      ],
+      "at": "2026-10-30T06:45:05+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import sys; sys.path.insert(0, '\"'\"'{plugin:dwitbuk}'\"'\"'); import dwitbuk; f, r, h = dwitbuk.collect('\"'\"'.'\"'\"', None); bad = [x['\"'\"'text'\"'\"'][:90] for x in f if x['\"'\"'kind'\"'\"'] == '\"'\"'reporter-failed'\"'\"']; print('\"'\"'reporters'\"'\"', r, '\"'\"'answered dwitbuk/findings@1:'\"'\"', sorted(h), '\"'\"'failed:'\"'\"', bad); sys.exit(1 if bad or sorted(h) != r else 0)'",
+      "exit": 0,
+      "tail": [
+        "reporters ['chongdae', 'hunsu', 'mangsang'] answered dwitbuk/findings@1: ['chongdae', 'hunsu', 'mangsang'] failed: []"
+      ],
+      "at": "2026-10-30T06:45:05+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import json, subprocess, sys; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; a = json.load(open('\"'\"'hunsu.lock.json'\"'\"'))['\"'\"'roles'\"'\"']['\"'\"'coherence'\"'\"']; print('\"'\"'coherence'\"'\"', a[2:]); sys.exit(1 if '\"'\"'{target}'\"'\"' in a else subprocess.run(chongdae.resolve_argv('\"'\"'.'\"'\"', a), cwd='\"'\"'.'\"'\"').returncode)'",
+      "exit": 0,
+      "tail": [
+        "unresolved_total = 0",
+        "coherence ['impact', '--target', '.']"
+      ],
+      "at": "2026-10-30T06:45:05+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import json, os, subprocess, sys, tempfile; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; L = json.load(open('\"'\"'hunsu.lock.json'\"'\"')); R = L['\"'\"'roles'\"'\"']; want = {'\"'\"'implementer'\"'\"': '\"'\"'codex'\"'\"', '\"'\"'newbie'\"'\"': '\"'\"'codex'\"'\"', '\"'\"'nitpick'\"'\"': '\"'\"'claude'\"'\"', '\"'\"'quibble'\"'\"': '\"'\"'claude'\"'\"', '\"'\"'verifier'\"'\"': '\"'\"'claude'\"'\"'}; stage = {'\"'\"'implementer'\"'\"': '\"'\"'build'\"'\"', '\"'\"'verifier'\"'\"': '\"'\"'verify'\"'\"'}; got = {k: R[k][R[k].index('\"'\"'--host'\"'\"') + 1] for k in want}; left = sorted(k for k, v in list(R.items()) + list(L['\"'\"'reporters'\"'\"'].items()) if isinstance(v, list) and '\"'\"'{target}'\"'\"' in v); d = tempfile.mkdtemp(); req = lambda k: json.dump({'\"'\"'artifact-type'\"'\"': '\"'\"'chongdae/request@1'\"'\"', '\"'\"'stage'\"'\"': stage.get(k, k), '\"'\"'run'\"'\"': '\"'\"'check'\"'\"', '\"'\"'task'\"'\"': '\"'\"'sample'\"'\"', '\"'\"'role'\"'\"': k, '\"'\"'target'\"'\"': os.path.abspath('\"'\"'.'\"'\"'), '\"'\"'goal'\"'\"': '\"'\"'g'\"'\"', '\"'\"'brief'\"'\"': '\"'\"'b'\"'\"', '\"'\"'closes'\"'\"': [], '\"'\"'contract'\"'\"': {}, '\"'\"'checks'\"'\"': [], '\"'\"'response'\"'\"': '\"'\"'r'\"'\"'}, open(os.path.join(d, k + '\"'\"'.json'\"'\"'), '\"'\"'w'\"'\"')); [req(k) for k in want]; codes = {k: subprocess.run(chongdae.resolve_argv('\"'\"'.'\"'\"', [a.replace('\"'\"'{request}'\"'\"', os.path.join(d, k + '\"'\"'.json'\"'\"')).replace('\"'\"'{response}'\"'\"', os.path.join(d, k + '\"'\"'.out.json'\"'\"')) for a in R[k]]) + ['\"'\"'--prompt-only'\"'\"'], cwd='\"'\"'.'\"'\"', capture_output=True).returncode for k in want}; print('\"'\"'hosts'\"'\"', got, '\"'\"'| {target} left in'\"'\"', left, '\"'\"'| --prompt-only exits'\"'\"', codes); sys.exit(0 if got == want and not left and not any(codes.values()) else 1)'",
+      "exit": 0,
+      "tail": [
+        "hosts {'implementer': 'codex', 'newbie': 'codex', 'nitpick': 'claude', 'quibble': 'claude', 'verifier': 'claude'} | {target} left in [] | --prompt-only exits {'implementer': 0, 'newbie': 0, 'nitpick': 0, 'quibble': 0, 'verifier': 0}"
+      ],
+      "at": "2026-10-30T06:45:06+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    }
+  ]
+}

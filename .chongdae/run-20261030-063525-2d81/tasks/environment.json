@@ -1,0 +1,312 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "environment",
+    "role": "session",
+    "brief": "The same work as dropped task 'env' (mis-specified check; see its reason), now decided by corrected checks. In hunsu.json, then 'hunsu lock' from this Claude session (lock host claude-code): (1) roles.coherence and reporters hunsu/chongdae/mangsang use '--target .', not '--target {target}'. The released chongdae and dwitbuk resolve_argv expand only {plugin:NAME} (plus {since} for reporters and {base} for coherence) and run with cwd=project. Reporter {since} stays. (2) Worker roles are explicit released argv with --host, the owner's delegated routine choice; models stay host defaults. implementer: hacheong --member dakdol --host codex. newbie: --member chojja --host codex. nitpick: --member teujip --host claude. quibble: --member sibi --host claude. verifier: dwitbuk eyes_worker.py --host claude. reviewer unchanged. No capability alternate names a host. (3) Acknowledged, not hidden: released hunsu 1.15.1's fingerprint counts Codex's .codex-marketplace-install.json, so 'AGENT_HOST=codex hunsu check' exits 1 for hunsu, mangsang and jokbo. Without that file the Codex copies equal the lock. No metadata removed, no --take-content, no Codex-host lock, no claim that the Codex host environment passes. Non-claims: hunsu judges role prompts as '--prompt-only' gives them, which is always the Claude variant, so the 'Where you run' text a Codex implementer or newbie actually receives was not judged. Coherence cannot yet be told apart from its broken form here (no mangsang net). Checks: hunsu check (Claude view) exits 0; the lock's reporters all answer dwitbuk/findings@1 through dwitbuk's released collect; the lock's coherence argv has no {target} and exits 0 through chongdae's resolve_argv; the worker hosts are as assigned, no {target} is left, and every worker argv resolves (--prompt-only exits 0).",
+    "closes": [],
+    "needs": [],
+    "checks": [
+      [
+        "python3",
+        "{plugin:hunsu}/hunsu.py",
+        "check",
+        "--target",
+        "."
+      ],
+      [
+        "python3",
+        "-c",
+        "import sys; sys.path.insert(0, '{plugin:dwitbuk}'); import dwitbuk; f, r, h = dwitbuk.collect('.', None); bad = [x['text'][:90] for x in f if x['kind'] == 'reporter-failed']; print('reporters', r, 'answered dwitbuk/findings@1:', sorted(h), 'failed:', bad); sys.exit(1 if bad or sorted(h) != r else 0)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import json, subprocess, sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; a = json.load(open('hunsu.lock.json'))['roles']['coherence']; print('coherence', a[2:]); sys.exit(1 if '{target}' in a else subprocess.run(chongdae.resolve_argv('.', a), cwd='.').returncode)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import json, os, subprocess, sys, tempfile; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; L = json.load(open('hunsu.lock.json')); R = L['roles']; want = {'implementer': 'codex', 'newbie': 'codex', 'nitpick': 'claude', 'quibble': 'claude', 'verifier': 'claude'}; stage = {'implementer': 'build', 'verifier': 'verify'}; got = {k: R[k][R[k].index('--host') + 1] for k in want}; left = sorted(k for k, v in list(R.items()) + list(L['reporters'].items()) if isinstance(v, list) and '{target}' in v); d = tempfile.mkdtemp(); req = lambda k: json.dump({'artifact-type': 'chongdae/request@1', 'stage': stage.get(k, k), 'run': 'check', 'task': 'sample', 'role': k, 'target': os.path.abspath('.'), 'goal': 'g', 'brief': 'b', 'closes': [], 'contract': {}, 'checks': [], 'response': 'r'}, open(os.path.join(d, k + '.json'), 'w')); [req(k) for k in want]; codes = {k: subprocess.run(chongdae.resolve_argv('.', [a.replace('{request}', os.path.join(d, k + '.json')).replace('{response}', os.path.join(d, k + '.out.json')) for a in R[k]]) + ['--prompt-only'], cwd='.', capture_output=True).returncode for k in want}; print('hosts', got, '| {target} left in', left, '| --prompt-only exits', codes); sys.exit(0 if got == want and not left and not any(codes.values()) else 1)"
+      ]
+    ],
+    "tests": [],
+    "gate": null,
+    "domain": "code",
+    "scope": [
+      "hunsu-judgments.json",
+      "hunsu.json",
+      "hunsu.lock.json"
+    ],
+    "after": [
+      "newbie"
+    ]
+  },
+  "seq": 3,
+  "added": "2026-10-30T06:44:49+00:00",
+  "self-performed": {
+    "instead-of": "implementer",
+    "why": "hunsu's compose skill makes the manifest edit and 'hunsu lock' the session's own step: hunsu.json and hunsu.lock.json are hunsu's records, written by its engine; a hired builder would rewrite the environment that hires it",
+    "by": {
+      "agent": "claude-code claude-opus-5-5"
+    },
+    "at": "2026-10-30T06:44:49+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "adopted": [
+    {
+      "by": {
+        "agent": "claude-code claude-opus-5-5"
+      },
+      "why": "Written by this session (claude-opus-5-5) for task 'env' before this task was added: the roles/reporters edit to hunsu.json and the 'hunsu lock' that rewrote hunsu.lock.json. 'env' was dropped only for its defective check, so its work is this task's. hunsu-judgments.json is unchanged (byte-identical; no judge round, since the lock reports no changed situation).",
+      "files": [
+        "hunsu.json",
+        "hunsu.lock.json"
+      ],
+      "at": "2026-10-30T06:44:56+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "from": {
+        "env": [
+          "hunsu.json",
+          "hunsu.lock.json"
+        ]
+      }
+    }
+  ],
+  "checks-passed": {
+    "ran": [
+      {
+        "command": "python3 '{plugin:hunsu}/hunsu.py' check --target .",
+        "exit": 0,
+        "tail": [
+          "info  4 finding(s) settled by the members' own text (sequenced / not co-active / duplicate, each on a verified sentence) — no resolution needed; see hunsu-conflicts.md",
+          "  (offline: a release is known here only from this machine's marketplace copies — `hunsu outdated` asks the marketplaces, read-only)",
+          "errors 0 · warnings 0 · info 1"
+        ],
+        "at": "2026-10-30T06:45:05+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import sys; sys.path.insert(0, '\"'\"'{plugin:dwitbuk}'\"'\"'); import dwitbuk; f, r, h = dwitbuk.collect('\"'\"'.'\"'\"', None); bad = [x['\"'\"'text'\"'\"'][:90] for x in f if x['\"'\"'kind'\"'\"'] == '\"'\"'reporter-failed'\"'\"']; print('\"'\"'reporters'\"'\"', r, '\"'\"'answered dwitbuk/findings@1:'\"'\"', sorted(h), '\"'\"'failed:'\"'\"', bad); sys.exit(1 if bad or sorted(h) != r else 0)'",
+        "exit": 0,
+        "tail": [
+          "reporters ['chongdae', 'hunsu', 'mangsang'] answered dwitbuk/findings@1: ['chongdae', 'hunsu', 'mangsang'] failed: []"
+        ],
+        "at": "2026-10-30T06:45:05+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import json, subprocess, sys; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; a = json.load(open('\"'\"'hunsu.lock.json'\"'\"'))['\"'\"'roles'\"'\"']['\"'\"'coherence'\"'\"']; print('\"'\"'coherence'\"'\"', a[2:]); sys.exit(1 if '\"'\"'{target}'\"'\"' in a else subprocess.run(chongdae.resolve_argv('\"'\"'.'\"'\"', a), cwd='\"'\"'.'\"'\"').returncode)'",
+        "exit": 0,
+        "tail": [
+          "unresolved_total = 0",
+          "coherence ['impact', '--target', '.']"
+        ],
+        "at": "2026-10-30T06:45:05+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import json, os, subprocess, sys, tempfile; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; L = json.load(open('\"'\"'hunsu.lock.json'\"'\"')); R = L['\"'\"'roles'\"'\"']; want = {'\"'\"'implementer'\"'\"': '\"'\"'codex'\"'\"', '\"'\"'newbie'\"'\"': '\"'\"'codex'\"'\"', '\"'\"'nitpick'\"'\"': '\"'\"'claude'\"'\"', '\"'\"'quibble'\"'\"': '\"'\"'claude'\"'\"', '\"'\"'verifier'\"'\"': '\"'\"'claude'\"'\"'}; stage = {'\"'\"'implementer'\"'\"': '\"'\"'build'\"'\"', '\"'\"'verifier'\"'\"': '\"'\"'verify'\"'\"'}; got = {k: R[k][R[k].index('\"'\"'--host'\"'\"') + 1] for k in want}; left = sorted(k for k, v in list(R.items()) + list(L['\"'\"'reporters'\"'\"'].items()) if isinstance(v, list) and '\"'\"'{target}'\"'\"' in v); d = tempfile.mkdtemp(); req = lambda k: json.dump({'\"'\"'artifact-type'\"'\"': '\"'\"'chongdae/request@1'\"'\"', '\"'\"'stage'\"'\"': stage.get(k, k), '\"'\"'run'\"'\"': '\"'\"'check'\"'\"', '\"'\"'task'\"'\"': '\"'\"'sample'\"'\"', '\"'\"'role'\"'\"': k, '\"'\"'target'\"'\"': os.path.abspath('\"'\"'.'\"'\"'), '\"'\"'goal'\"'\"': '\"'\"'g'\"'\"', '\"'\"'brief'\"'\"': '\"'\"'b'\"'\"', '\"'\"'closes'\"'\"': [], '\"'\"'contract'\"'\"': {}, '\"'\"'checks'\"'\"': [], '\"'\"'response'\"'\"': '\"'\"'r'\"'\"'}, open(os.path.join(d, k + '\"'\"'.json'\"'\"'), '\"'\"'w'\"'\"')); [req(k) for k in want]; codes = {k: subprocess.run(chongdae.resolve_argv('\"'\"'.'\"'\"', [a.replace('\"'\"'{request}'\"'\"', os.path.join(d, k + '\"'\"'.json'\"'\"')).replace('\"'\"'{response}'\"'\"', os.path.join(d, k + '\"'\"'.out.json'\"'\"')) for a in R[k]]) + ['\"'\"'--prompt-only'\"'\"'], cwd='\"'\"'.'\"'\"', capture_output=True).returncode for k in want}; print('\"'\"'hosts'\"'\"', got, '\"'\"'| {target} left in'\"'\"', left, '\"'\"'| --prompt-only exits'\"'\"', codes); sys.exit(0 if got == want and not left and not any(codes.values()) else 1)'",
+        "exit": 0,
+        "tail": [
+          "hosts {'implementer': 'codex', 'newbie': 'codex', 'nitpick': 'claude', 'quibble': 'claude', 'verifier': 'claude'} | {target} left in [] | --prompt-only exits {'implementer': 0, 'newbie': 0, 'nitpick': 0, 'quibble': 0, 'verifier': 0}"
+        ],
+        "at": "2026-10-30T06:45:06+00:00",
+        "chongdae": "chongdae 1.24.0"
+      }
+    ],
+    "at": "2026-10-30T06:45:06+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "review": {
+    "artifact-type": "dwitbuk/review@1",
+    "verdict": "accept",
+    "findings": [],
+    "worker": {
+      "host": "claude-code",
+      "model": "claude-opus-5-5",
+      "turns": 5,
+      "cost_usd": 0.154757
+    }
+  },
+  "verdict-given": {
+    "at": "2026-10-30T06:45:17+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "reviewed_tree": {
+    ".claude-plugin/plugin.json": "3c81cafe3cc8d09a97d3715e57e7e67ace25356f",
+    ".gitignore": "bffddc5226b8b4d2de1eb75b9ffb1dce2ae28649",
+    "README.md": "0460547bbef3f50f928babcf31b6235e7d81c45c",
+    "plugin.json": "0bc7df9adc7ec4344278591aa34a52ec06d66ec7",
+    "AGENTS.md": "748b7ef1e5393ef4045b80e5ba5d41b1ca7a7bbf",
+    "CLAUDE.md": "c140473a3a5fbe89301c99d9d0d1b76c5971f2c3"
+  },
+  "verified_by": {
+    "provider": "command",
+    "argv": [
+      "python3",
+      "{plugin:dwitbuk}/eyes_worker.py",
+      "--request",
+      "{request}",
+      "--response",
+      "{response}",
+      "--host",
+      "claude"
+    ],
+    "host": "claude-code",
+    "model": "claude-opus-5-5",
+    "turns": 5,
+    "cost_usd": 0.154757,
+    "versions": {
+      "used": {
+        "dwitbuk": "1.16.0",
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 0,
+      "commands-failed": 0
+    }
+  },
+  "stages": {
+    "newbie": {
+      "response": {
+        "status": "done",
+        "summary": "Completed the README-only first-use review. CLI commands succeeded, but the README did not provide a procedure to verify this environment adoption.",
+        "tried": [
+          {
+            "command": "python3 jokbo.py --help",
+            "expected": "“From a source checkout, inspect its arguments with `python3 jokbo.py --help`”",
+            "observed": "Exit 0; listed file, since, find, index, map and note.",
+            "ok": true
+          },
+          {
+            "command": "mktemp -d ./newbie-environment.XXXXXX",
+            "expected": "Create the scratch directory required by the request.",
+            "observed": "Exit 0. Copied README.md into it; removed the scratch directory after the review.",
+            "ok": true
+          },
+          {
+            "command": "python3 ../jokbo.py index --target .",
+            "expected": "“`index [--rebuild]` builds the cache and says what it holds”",
+            "observed": "Exit 0 from scratch; reported 26 files, 7 documents, 35 sections, 15 commits and four declared read providers from the enclosing repository.",
+            "ok": true
+          },
+          {
+            "command": "python3 ../jokbo.py find environment adoption --target .",
+            "expected": "“Where the project speaks of something: document sections, the code's own words, commit subjects, and the lines of the declared `decision` reads that share the words”",
+            "observed": "Exit 0; returned ranked document quotations and commit subjects, including material from outside the scratch directory.",
+            "ok": true
+          }
+        ],
+        "findings": [
+          {
+            "kind": "surprise",
+            "quote": "when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.",
+            "observed": "Passing --target . from a scratch directory nested inside the checkout selected the enclosing repository, including its declared reads.",
+            "why": "The README does not explain that the target directory is resolved to an enclosing repository."
+          },
+          {
+            "kind": "unclear",
+            "quote": "reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.",
+            "observed": "The README gives no reconciliation or verification commands for worker hosts, reporter responses, coherence argv or host-specific fingerprints. The CLI help exposes reader commands.",
+            "why": "Following this instruction did not provide a way to verify the environment adoption requested by the goal."
+          }
+        ],
+        "non-claims": [
+          "Did not execute the supplied internal checks or inspect source, tests, manifests, locks or run records directly.",
+          "Did not establish Claude or Codex environment validity, worker host assignments, reporter contracts, coherence validity or live host integration.",
+          "Successful reader commands do not establish completion of the six project loops."
+        ],
+        "worker": {
+          "host": "codex",
+          "model": "gpt-6-astra",
+          "effort": "medium"
+        }
+      },
+      "by": {
+        "provider": "command",
+        "argv": [
+          "python3",
+          "{plugin:hacheong}/worker.py",
+          "--member",
+          "chojja",
+          "--request",
+          "{request}",
+          "--response",
+          "{response}",
+          "--host",
+          "codex"
+        ],
+        "host": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
+        "versions": {
+          "used": {
+            "hacheong": "1.12.1",
+            "chongdae": "1.24.0"
+          }
+        },
+        "trace": {
+          "changed": [],
+          "commands-run": 7,
+          "commands-failed": 0
+        }
+      },
+      "when": "after"
+    }
+  },
+  "checks": [
+    [
+      "python3",
+      "{plugin:hunsu}/hunsu.py",
+      "check",
+      "--target",
+      "."
+    ],
+    [
+      "python3",
+      "-c",
+      "import sys; sys.path.insert(0, '{plugin:dwitbuk}'); import dwitbuk; f, r, h = dwitbuk.collect('.', None); bad = [x['text'][:90] for x in f if x['kind'] == 'reporter-failed']; print('reporters', r, 'answered dwitbuk/findings@1:', sorted(h), 'failed:', bad); sys.exit(1 if bad or sorted(h) != r else 0)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, subprocess, sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; a = json.load(open('hunsu.lock.json'))['roles']['coherence']; print('coherence', a[2:]); sys.exit(1 if '{target}' in a else subprocess.run(chongdae.resolve_argv('.', a), cwd='.').returncode)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, os, subprocess, sys, tempfile; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; L = json.load(open('hunsu.lock.json')); R = L['roles']; want = {'implementer': 'codex', 'newbie': 'codex', 'nitpick': 'claude', 'quibble': 'claude', 'verifier': 'claude'}; stage = {'implementer': 'build', 'verifier': 'verify'}; got = {k: R[k][R[k].index('--host') + 1] for k in want}; left = sorted(k for k, v in list(R.items()) + list(L['reporters'].items()) if isinstance(v, list) and '{target}' in v); d = tempfile.mkdtemp(); req = lambda k: json.dump({'artifact-type': 'chongdae/request@1', 'stage': stage.get(k, k), 'run': 'check', 'task': 'sample', 'role': k, 'target': os.path.abspath('.'), 'goal': 'g', 'brief': 'b', 'closes': [], 'contract': {}, 'checks': [], 'response': 'r'}, open(os.path.join(d, k + '.json'), 'w')); [req(k) for k in want]; codes = {k: subprocess.run(chongdae.resolve_argv('.', [a.replace('{request}', os.path.join(d, k + '.json')).replace('{response}', os.path.join(d, k + '.out.json')) for a in R[k]]) + ['--prompt-only'], cwd='.', capture_output=True).returncode for k in want}; print('hosts', got, '| {target} left in', left, '| --prompt-only exits', codes); sys.exit(0 if got == want and not left and not any(codes.values()) else 1)"
+    ]
+  ],
+  "touched": [
+    "hunsu.json",
+    "hunsu.lock.json"
+  ],
+  "performed_by": {
+    "provider": "session",
+    "host": "claude-code",
+    "agent": "claude-code_2-1-314_agent",
+    "effort": "xhigh",
+    "model": "claude-opus-5-5",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 2,
+      "command-lines": "kept in the local session transcript, not in the record",
+      "window-from": "2026-10-30T06:44:49+00:00"
+    }
+  },
+  "done": {
+    "at": "2026-10-30T06:46:17+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

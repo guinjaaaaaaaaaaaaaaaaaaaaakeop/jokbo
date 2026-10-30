@@ -1,0 +1,39 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "provenance",
+    "role": "session",
+    "brief": "Provenance and non-claim, recorded before this run writes anything. The environment files present when this run began are prior setup, not this run's work: hunsu.json, hunsu.lock.json, hunsu-judgments.json, .claude/settings.json (enabledPlugins, project scope), the four .gitignore entries (.claude/settings.local.json, hunsu-conflicts.md, *-response.transcript.jsonl, .hunsu-bootstrap/), and the ignored hunsu.local.json, hunsu-conflicts.md and .hunsu-bootstrap/. Attempt 1 was a Codex session (01a18b6a, .hunsu-bootstrap/status.json: install, judge and lock failed under its sandbox; partial lock archived). Attempt 2 was a Claude session (1a8a4827, .hunsu-bootstrap/attempt-2/status.json: project-scope install of six plugins, a judge round of 1 cluster + 7 group calls on claude-code claude-opus-5-5, lock with every worker on --host claude). This run claims only the changes its later tasks measure. The uncommitted README.md, plugin.json and .claude-plugin/plugin.json edits and the untracked AGENTS.md and CLAUDE.md are the owner's pre-existing source edits (baseline ../.umbrella/selfhost-baseline/jokbo.json: head 5e0fb48, source diff sha256 ad3e9915..., AGENTS.md d1babdf4..., CLAUDE.md 336cc4fb...): not this run's, never staged by it. The three resolutions remain reviewed:false: the judge's proposals applied by the setup session under the owner's delegated setup policy; no person read them, and this run does not change that.",
+    "closes": [],
+    "needs": [],
+    "checks": [],
+    "tests": [],
+    "gate": null
+  },
+  "seq": 1,
+  "added": "2026-10-30T06:35:55+00:00",
+  "non-claims": [
+    "no check decides this task; done means the agent said so",
+    "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`",
+    "no session transcript here: what the session did for this task is its word alone"
+  ],
+  "checks": [],
+  "touched": [],
+  "performed_by": {
+    "provider": "session",
+    "host": "codex",
+    "agent": "codex_0.165.0",
+    "model": "gpt-6-astra",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    }
+  },
+  "done": {
+    "at": "2026-10-30T06:36:02+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

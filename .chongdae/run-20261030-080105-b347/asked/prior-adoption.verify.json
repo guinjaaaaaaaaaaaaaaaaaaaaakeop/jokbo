@@ -1,0 +1,123 @@
+{
+  "artifact-type": "chongdae/request@1",
+  "written_by": "chongdae 1.24.0",
+  "stage": "verify",
+  "run": "run-20261030-080105-b347",
+  "task": "prior-adoption",
+  "role": "verifier",
+  "target": ".",
+  "goal": "Resume the jokbo self-host session: review and adopt the owner-authorized prior docs, AGENTS/CLAUDE and Python >=3.11 changes as earlier work, add the missing version policy, and fix repository record hygiene (not a claim that all six project loops are complete)",
+  "brief": "Review and adopt EARLIER work. This is not this run's implementation. The owner-authorized edits were already in the tree before run-20261030-063525-2d81 began. The root captured them read-only in ../.umbrella/selfhost-baseline/jokbo.json and jokbo.patch: head 5e0fb48, tracked diff sha256 ad3e9915..., AGENTS.md d1babdf4..., CLAUDE.md 336cc4fb.... The edits: README navigation; the Install note on Python 3.11+; the new 'Shared Claude and Codex guidance' section; the Commands intro; the hooks adapter paragraph; the new Versioning and 'Release and adoption' sections. Also the new AGENTS.md (the shared maintenance guide), CLAUDE.md (only '@AGENTS.md'), and engines.python '>=3.9' -> '>=3.11' in plugin.json and .claude-plugin/plugin.json (.codex-plugin/plugin.json has said '>=3.11' since 1.0.0). They are committed byte-for-byte; this task changes no line of them. Review against source, as AGENTS.md asks for documentation changes: (1) the five files equal the root's baseline; (2) every relative link and anchor in README.md and AGENTS.md resolves, and CLAUDE.md is only the import; (3) CLI examples: 'python3 jokbo.py --help' lists file/since/find/index/map/note, each '<command> --help' has --target, and the /jokbo:* adapters call jokbo.py; (4) host packaging and version metadata: version 1.8.1 equal in the three manifests and both .claude-plugin/marketplace.json fields; engines.python '>=3.11' in all three; .agents/plugins/marketplace.json names jokbo at ./ with no version field; plugin.json extensions.com.openai.hooks is ./hooks/codex.json; the Codex manifest exposes ./skills/ (skills/read/SKILL.md); hooks.json and codex.json call the same six handlers with python3; (5) 'git diff --check' clean. Review notes, recorded here and not changed: the 3.11 floor is the owner's declaration. The source parses under 3.9 and 3.10 grammar, no 3.11-only API was found, and nothing was run on 3.9/3.10 (no such interpreter here). The Claude manifest declares no skills path; Claude finds skills/ by its default layout. The previous run's two Codex newbie findings on this text stand (README target resolution; no adoption-verification procedure). No version bump: raising the floor is handled by task 'version-policy'. No new Codex newbie: the previous run's newbie already read this README text, so a repeat would be ceremonial.",
+  "closes": [],
+  "contract": {},
+  "checks": [
+    [
+      "python3",
+      "-c",
+      "import hashlib, json, subprocess, sys; b = json.load(open('../.umbrella/selfhost-baseline/jokbo.json')); d = subprocess.run(['git', 'diff', b['head'], '--', '.claude-plugin/plugin.json', 'README.md', 'plugin.json'], capture_output=True).stdout; t = hashlib.sha256(d).hexdigest() == b['diff_sha256']; u = {f: hashlib.sha256(open(f, 'rb').read()).hexdigest() == v['sha256'] for f, v in b['untracked'].items()}; print('prior work vs root baseline (head', b['head'][:7] + '): tracked diff matches', t, '| untracked', u); sys.exit(0 if t and all(u.values()) else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import os, re, sys; fence = lambda s: re.sub(r'(?ms)^\\`\\`\\`.*?^\\`\\`\\`', '', s); slug = lambda h: re.sub(r'[^\\w\\- ]', '', h.strip().lower()).replace(' ', '-'); heads = lambda f: {slug(m) for m in re.findall(r'^#+ +(.+?) *$', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('README.md', 'AGENTS.md') for l in re.findall(r'\\]\\(([^)\\s]+)\\)', fence(open(f).read())) if not l.startswith(('http://', 'https://', 'mailto:'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('#')[0]) if l.partition('#')[0] else f; bad = [f + ' -> ' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('#')[2] and l.partition('#')[2] not in heads(tgt(f, l)))]; imp = open('CLAUDE.md').read() == '@AGENTS.md\\n'; print('relative links checked:', len(links), '| broken:', bad, '| CLAUDE.md is only the AGENTS.md import:', imp); sys.exit(0 if links and not bad and imp else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; h = subprocess.run([sys.executable, 'jokbo.py', '--help'], capture_output=True, text=True); cmds = ['file', 'since', 'find', 'index', 'map', 'note']; r = {c: subprocess.run([sys.executable, 'jokbo.py', c, '--help'], capture_output=True, text=True) for c in cmds}; a = {c: 'commands/%s.md' % c for c in ('file', 'since', 'find')}; ad = {c: ('jokbo.py\" %s ' % c) in open(p).read() and '--target' in open(p).read() for c, p in a.items()}; ok = h.returncode == 0 and all(('{' + ','.join(cmds) + '}') in h.stdout for _ in [0]) and all(x.returncode == 0 and '--target' in x.stdout for x in r.values()) and all(ad.values()); print('jokbo.py --help exit', h.returncode, '| <command> --help with --target:', {c: x.returncode == 0 and '--target' in x.stdout for c, x in r.items()}, '| /jokbo:* adapters call jokbo.py:', ad); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import json, os, sys; L = lambda p: json.load(open(p)); m = {p: L(p) for p in ('plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json')}; mk = L('.claude-plugin/marketplace.json'); ag = L('.agents/plugins/marketplace.json'); v = {p: d['version'] for p, d in m.items()}; v['marketplace.metadata'] = mk['metadata']['version']; v['marketplace.plugins'] = [p['version'] for p in mk['plugins'] if p['name'] == 'jokbo'][0]; py = {p: d.get('engines', {}).get('python') for p, d in m.items()}; agp = [p for p in ag['plugins'] if p['name'] == 'jokbo'][0]; cx = m['plugin.json']['extensions']['com.openai']['hooks']; hk = lambda f: sorted({h['command'].split('/hooks/')[1].strip('\"') for g in L(f)['hooks'].values() for x in g for h in x['hooks']}); py3 = all(h['command'].startswith('python3 ') for f in ('hooks/hooks.json', 'hooks/codex.json') for g in L(f)['hooks'].values() for x in g for h in x['hooks']); ok = len(set(v.values())) == 1 and set(py.values()) == {'>=3.11'} and agp['source']['path'] == './' and 'version' not in agp and 'version' not in ag and cx == './hooks/codex.json' and os.path.isfile(cx) and m['.codex-plugin/plugin.json']['skills'] == './skills/' and os.path.isfile('skills/read/SKILL.md') and hk('hooks/hooks.json') == hk('hooks/codex.json') and py3; print('versions', v, '| engines.python', py, '| .agents marketplace jokbo ./ without version:', agp['source']['path'] == './' and 'version' not in agp, '| codex hooks', cx, '| same handlers both hosts:', hk('hooks/hooks.json') == hk('hooks/codex.json'), '| python3 in every hook:', py3); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; a = subprocess.run(['git', 'diff', '--check', 'HEAD', '--', 'README.md', 'plugin.json', '.claude-plugin/plugin.json'], capture_output=True, text=True); b = [f + ':' + str(i + 1) for f in ('AGENTS.md', 'CLAUDE.md') for i, l in enumerate(open(f)) if l.rstrip('\\n') != l.rstrip()]; print('git diff --check exit', a.returncode, a.stdout[:200], '| trailing whitespace in untracked docs:', b); sys.exit(0 if a.returncode == 0 and not b else 1)"
+    ]
+  ],
+  "tests": [],
+  "domain": "code",
+  "response": "./.chongdae/run-20261030-080105-b347/local/prior-adoption.verify.response.json",
+  "touched": [
+    ".claude-plugin/plugin.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "plugin.json"
+  ],
+  "built": null,
+  "excluded": {
+    "record-paths": []
+  },
+  "attribution": {
+    "adopted": [
+      ".claude-plugin/plugin.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "README.md",
+      "plugin.json"
+    ]
+  },
+  "since": {
+    ".": "3b8fb35c868698a569034ade896cd0b3e18ab5ba"
+  },
+  "checked": [
+    {
+      "command": "python3 -c 'import hashlib, json, subprocess, sys; b = json.load(open('\"'\"'../.umbrella/selfhost-baseline/jokbo.json'\"'\"')); d = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', b['\"'\"'head'\"'\"'], '\"'\"'--'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'README.md'\"'\"', '\"'\"'plugin.json'\"'\"'], capture_output=True).stdout; t = hashlib.sha256(d).hexdigest() == b['\"'\"'diff_sha256'\"'\"']; u = {f: hashlib.sha256(open(f, '\"'\"'rb'\"'\"').read()).hexdigest() == v['\"'\"'sha256'\"'\"'] for f, v in b['\"'\"'untracked'\"'\"'].items()}; print('\"'\"'prior work vs root baseline (head'\"'\"', b['\"'\"'head'\"'\"'][:7] + '\"'\"'): tracked diff matches'\"'\"', t, '\"'\"'| untracked'\"'\"', u); sys.exit(0 if t and all(u.values()) else 1)'",
+      "exit": 0,
+      "tail": [
+        "prior work vs root baseline (head 5e0fb48): tracked diff matches True | untracked {'AGENTS.md': True, 'CLAUDE.md': True}"
+      ],
+      "at": "2026-10-30T08:04:08+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import os, re, sys; fence = lambda s: re.sub(r'\"'\"'(?ms)^\\`\\`\\`.*?^\\`\\`\\`'\"'\"', '\"'\"''\"'\"', s); slug = lambda h: re.sub(r'\"'\"'[^\\w\\- ]'\"'\"', '\"'\"''\"'\"', h.strip().lower()).replace('\"'\"' '\"'\"', '\"'\"'-'\"'\"'); heads = lambda f: {slug(m) for m in re.findall(r'\"'\"'^#+ +(.+?) *$'\"'\"', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('\"'\"'README.md'\"'\"', '\"'\"'AGENTS.md'\"'\"') for l in re.findall(r'\"'\"'\\]\\(([^)\\s]+)\\)'\"'\"', fence(open(f).read())) if not l.startswith(('\"'\"'http://'\"'\"', '\"'\"'https://'\"'\"', '\"'\"'mailto:'\"'\"'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('\"'\"'#'\"'\"')[0]) if l.partition('\"'\"'#'\"'\"')[0] else f; bad = [f + '\"'\"' -> '\"'\"' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('\"'\"'#'\"'\"')[2] and l.partition('\"'\"'#'\"'\"')[2] not in heads(tgt(f, l)))]; imp = open('\"'\"'CLAUDE.md'\"'\"').read() == '\"'\"'@AGENTS.md\\n'\"'\"'; print('\"'\"'relative links checked:'\"'\"', len(links), '\"'\"'| broken:'\"'\"', bad, '\"'\"'| CLAUDE.md is only the AGENTS.md import:'\"'\"', imp); sys.exit(0 if links and not bad and imp else 1)'",
+      "exit": 0,
+      "tail": [
+        "relative links checked: 19 | broken: [] | CLAUDE.md is only the AGENTS.md import: True"
+      ],
+      "at": "2026-10-30T08:04:08+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import subprocess, sys; h = subprocess.run([sys.executable, '\"'\"'jokbo.py'\"'\"', '\"'\"'--help'\"'\"'], capture_output=True, text=True); cmds = ['\"'\"'file'\"'\"', '\"'\"'since'\"'\"', '\"'\"'find'\"'\"', '\"'\"'index'\"'\"', '\"'\"'map'\"'\"', '\"'\"'note'\"'\"']; r = {c: subprocess.run([sys.executable, '\"'\"'jokbo.py'\"'\"', c, '\"'\"'--help'\"'\"'], capture_output=True, text=True) for c in cmds}; a = {c: '\"'\"'commands/%s.md'\"'\"' % c for c in ('\"'\"'file'\"'\"', '\"'\"'since'\"'\"', '\"'\"'find'\"'\"')}; ad = {c: ('\"'\"'jokbo.py\" %s '\"'\"' % c) in open(p).read() and '\"'\"'--target'\"'\"' in open(p).read() for c, p in a.items()}; ok = h.returncode == 0 and all(('\"'\"'{'\"'\"' + '\"'\"','\"'\"'.join(cmds) + '\"'\"'}'\"'\"') in h.stdout for _ in [0]) and all(x.returncode == 0 and '\"'\"'--target'\"'\"' in x.stdout for x in r.values()) and all(ad.values()); print('\"'\"'jokbo.py --help exit'\"'\"', h.returncode, '\"'\"'| <command> --help with --target:'\"'\"', {c: x.returncode == 0 and '\"'\"'--target'\"'\"' in x.stdout for c, x in r.items()}, '\"'\"'| /jokbo:* adapters call jokbo.py:'\"'\"', ad); sys.exit(0 if ok else 1)'",
+      "exit": 0,
+      "tail": [
+        "jokbo.py --help exit 0 | <command> --help with --target: {'file': True, 'since': True, 'find': True, 'index': True, 'map': True, 'note': True} | /jokbo:* adapters call jokbo.py: {'file': True, 'since': True, 'find': True}"
+      ],
+      "at": "2026-10-30T08:04:08+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import json, os, sys; L = lambda p: json.load(open(p)); m = {p: L(p) for p in ('\"'\"'plugin.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'.codex-plugin/plugin.json'\"'\"')}; mk = L('\"'\"'.claude-plugin/marketplace.json'\"'\"'); ag = L('\"'\"'.agents/plugins/marketplace.json'\"'\"'); v = {p: d['\"'\"'version'\"'\"'] for p, d in m.items()}; v['\"'\"'marketplace.metadata'\"'\"'] = mk['\"'\"'metadata'\"'\"']['\"'\"'version'\"'\"']; v['\"'\"'marketplace.plugins'\"'\"'] = [p['\"'\"'version'\"'\"'] for p in mk['\"'\"'plugins'\"'\"'] if p['\"'\"'name'\"'\"'] == '\"'\"'jokbo'\"'\"'][0]; py = {p: d.get('\"'\"'engines'\"'\"', {}).get('\"'\"'python'\"'\"') for p, d in m.items()}; agp = [p for p in ag['\"'\"'plugins'\"'\"'] if p['\"'\"'name'\"'\"'] == '\"'\"'jokbo'\"'\"'][0]; cx = m['\"'\"'plugin.json'\"'\"']['\"'\"'extensions'\"'\"']['\"'\"'com.openai'\"'\"']['\"'\"'hooks'\"'\"']; hk = lambda f: sorted({h['\"'\"'command'\"'\"'].split('\"'\"'/hooks/'\"'\"')[1].strip('\"'\"'\"'\"'\"') for g in L(f)['\"'\"'hooks'\"'\"'].values() for x in g for h in x['\"'\"'hooks'\"'\"']}); py3 = all(h['\"'\"'command'\"'\"'].startswith('\"'\"'python3 '\"'\"') for f in ('\"'\"'hooks/hooks.json'\"'\"', '\"'\"'hooks/codex.json'\"'\"') for g in L(f)['\"'\"'hooks'\"'\"'].values() for x in g for h in x['\"'\"'hooks'\"'\"']); ok = len(set(v.values())) == 1 and set(py.values()) == {'\"'\"'>=3.11'\"'\"'} and agp['\"'\"'source'\"'\"']['\"'\"'path'\"'\"'] == '\"'\"'./'\"'\"' and '\"'\"'version'\"'\"' not in agp and '\"'\"'version'\"'\"' not in ag and cx == '\"'\"'./hooks/codex.json'\"'\"' and os.path.isfile(cx) and m['\"'\"'.codex-plugin/plugin.json'\"'\"']['\"'\"'skills'\"'\"'] == '\"'\"'./skills/'\"'\"' and os.path.isfile('\"'\"'skills/read/SKILL.md'\"'\"') and hk('\"'\"'hooks/hooks.json'\"'\"') == hk('\"'\"'hooks/codex.json'\"'\"') and py3; print('\"'\"'versions'\"'\"', v, '\"'\"'| engines.python'\"'\"', py, '\"'\"'| .agents marketplace jokbo ./ without version:'\"'\"', agp['\"'\"'source'\"'\"']['\"'\"'path'\"'\"'] == '\"'\"'./'\"'\"' and '\"'\"'version'\"'\"' not in agp, '\"'\"'| codex hooks'\"'\"', cx, '\"'\"'| same handlers both hosts:'\"'\"', hk('\"'\"'hooks/hooks.json'\"'\"') == hk('\"'\"'hooks/codex.json'\"'\"'), '\"'\"'| python3 in every hook:'\"'\"', py3); sys.exit(0 if ok else 1)'",
+      "exit": 0,
+      "tail": [
+        "versions {'plugin.json': '1.8.1', '.claude-plugin/plugin.json': '1.8.1', '.codex-plugin/plugin.json': '1.8.1', 'marketplace.metadata': '1.8.1', 'marketplace.plugins': '1.8.1'} | engines.python {'plugin.json': '>=3.11', '.claude-plugin/plugin.json': '>=3.11', '.codex-plugin/plugin.json': '>=3.11'} | .agents marketplace jokbo ./ without version: True | codex hooks ./hooks/codex.json | same handlers both hosts: True | python3 in every hook: True"
+      ],
+      "at": "2026-10-30T08:04:08+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    },
+    {
+      "command": "python3 -c 'import subprocess, sys; a = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--check'\"'\"', '\"'\"'HEAD'\"'\"', '\"'\"'--'\"'\"', '\"'\"'README.md'\"'\"', '\"'\"'plugin.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"'], capture_output=True, text=True); b = [f + '\"'\"':'\"'\"' + str(i + 1) for f in ('\"'\"'AGENTS.md'\"'\"', '\"'\"'CLAUDE.md'\"'\"') for i, l in enumerate(open(f)) if l.rstrip('\"'\"'\\n'\"'\"') != l.rstrip()]; print('\"'\"'git diff --check exit'\"'\"', a.returncode, a.stdout[:200], '\"'\"'| trailing whitespace in untracked docs:'\"'\"', b); sys.exit(0 if a.returncode == 0 and not b else 1)'",
+      "exit": 0,
+      "tail": [
+        "git diff --check exit 0  | trailing whitespace in untracked docs: []"
+      ],
+      "at": "2026-10-30T08:04:08+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    }
+  ]
+}

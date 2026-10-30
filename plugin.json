@@ -1,9 +1,9 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "jokbo",
-  "version": "1.8.1",
+  "version": "2.0.0",
   "engines": {
-    "python": ">=3.9"
+    "python": ">=3.11"
   },
   "records": [
     ".jokbo/"

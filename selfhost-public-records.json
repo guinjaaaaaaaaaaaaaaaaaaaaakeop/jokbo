@@ -1,0 +1,466 @@
+{
+ "artifact": "selfhost/public-records@1",
+ "what": "The jokbo 2.0.0 candidate exported for publication as one commit on origin/main. Source, documentation, environment and metadata files are the frozen candidate's exact bytes; .chongdae/ and reviews/ hold the reviewed final closed self-hosting records. The private self-hosting history they came from is not an ancestor of this commit, and this commit does not stand in for it.",
+ "base": {
+  "commit": "5e0fb484638372c39af96e2b18361b4bc8e3b1b5",
+  "is": "origin/main (1.8.1)"
+ },
+ "source": {
+  "commit": "6a8edfe353c5a91dc01533a56910f22edcc0fdb0",
+  "tree": "c0dbbc51bebaf315cd5932120e7656d881755aa5",
+  "is": "the private candidate commit; not published, not an ancestor",
+  "rule": "each file below has the same git blob and mode as in the source commit",
+  "files": [
+   {
+    "path": ".agents/plugins/marketplace.json",
+    "mode": "100644",
+    "git_blob": "79c12688f81e78c838f30ce1130f200919c59065",
+    "sha256": "db7fa12ef8f53cd91ec1e7af1c9ab4753946f5d931a987016e5c98c05a0f0bfb"
+   },
+   {
+    "path": ".claude-plugin/marketplace.json",
+    "mode": "100644",
+    "git_blob": "fa69a2c95571e115f14f8476773229a4f2904635",
+    "sha256": "b2bc1c3683015a57ef158febe0e5724a845efff0f4def566ad0e4cf7f6de9684"
+   },
+   {
+    "path": ".claude-plugin/plugin.json",
+    "mode": "100644",
+    "git_blob": "f99212882a61a5096e53b6e60f147a4b52cb39d7",
+    "sha256": "03b2a6e98f59c99cb71087b58b44daee40dcfa4711356735c6fdf099ddf62f23"
+   },
+   {
+    "path": ".claude/settings.json",
+    "mode": "100644",
+    "git_blob": "ce9939c7cf6a17f403de4c66794aa78aebc5107c",
+    "sha256": "f1879a2780c60b07730710f049b8a1a53ef0bb8ef0f48f8facaea43f90674e25"
+   },
+   {
+    "path": ".codex-plugin/plugin.json",
+    "mode": "100644",
+    "git_blob": "24b97e654552ee2804a7be24040c2f0015947e8a",
+    "sha256": "18c8a42fedc4283e412eb28a3bef1b0959152becd8c3d994aa173dced16599a4"
+   },
+   {
+    "path": ".gitignore",
+    "mode": "100644",
+    "git_blob": "ed8948371d794d80c48b58e30dbabc8783e3b669",
+    "sha256": "0fcf670c97df8c6e25d2a40a10a87fa4ee2e5b920145fcea86657da368ed6a8c"
+   },
+   {
+    "path": "AGENTS.md",
+    "mode": "100644",
+    "git_blob": "22be42d9870a593b94deeeac4d4a0f9549274dce",
+    "sha256": "d1babdf4b0a51bbd68a0cbfb573905fedbdc019840763453b8da49efcf2c99fc"
+   },
+   {
+    "path": "CLAUDE.md",
+    "mode": "100644",
+    "git_blob": "43c994c2d3617f947bcb5adf1933e21dabe46bb5",
+    "sha256": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+   },
+   {
+    "path": "LICENSE",
+    "mode": "100644",
+    "git_blob": "6d464339038b2db249c491d45c71dee4436c98fd",
+    "sha256": "5d5e22555ed88e3e5e38cc09ab04ae61903f35f0c9e9ac606d2a44214cca3bd0"
+   },
+   {
+    "path": "README.md",
+    "mode": "100644",
+    "git_blob": "ffe2747ad54ea309dfed41475915f4a407371513",
+    "sha256": "658000639f5fd1e4857e4400c829def0f84de82fd4780a0bff6da1a2e8006017"
+   },
+   {
+    "path": "commands/file.md",
+    "mode": "100644",
+    "git_blob": "78be7e1f064c7084e50e83675f1b26ddf79e99ee",
+    "sha256": "4602056be5cb842e3d8fc27b7ba744d73b3d9ab75b15218a43b87171655c6a76"
+   },
+   {
+    "path": "commands/find.md",
+    "mode": "100644",
+    "git_blob": "fd142d2844e4222bb8e27c8fe3bd23e2f5015418",
+    "sha256": "88a24125c3b7a1af10c7aa79b4ff24234e5ebcfcff9aca94568f24360e304db6"
+   },
+   {
+    "path": "commands/since.md",
+    "mode": "100644",
+    "git_blob": "6e66b95cf83ee6d8511818de6e6d01c67211f8a0",
+    "sha256": "d9003318ad52c2cd3400aa2dc069e1d884484eae3b8aaf6d876a1b085f9d493a"
+   },
+   {
+    "path": "hooks/_common.py",
+    "mode": "100644",
+    "git_blob": "d526b003c95315e25217a90be339dceb57e2ba70",
+    "sha256": "dc08fae4985e98185fc1035d38abc7bf9473157e7e246a7c38bb7f48cb4fb61e"
+   },
+   {
+    "path": "hooks/codex.json",
+    "mode": "100644",
+    "git_blob": "c14021625e0b841a23b9b569e03e1a4c390540d8",
+    "sha256": "f60f1916d2fb878f7ad1fca454e2aee25389b24aad19137c256975e298fd2183"
+   },
+   {
+    "path": "hooks/hooks.json",
+    "mode": "100644",
+    "git_blob": "e6bbd3f5cd49f0c85699bdb5114107903329b5ef",
+    "sha256": "c06534862b4b70f61f53511a9968ec1f1ae5cce1bd3092dcc0b1e19837a2cfb3"
+   },
+   {
+    "path": "hooks/post_tool.py",
+    "mode": "100644",
+    "git_blob": "77b01772a3a5f7069a1aab54d928c1959d2c5ac2",
+    "sha256": "4886da08dbbd81b9d04ce38cb1d83d2f6a2f8c271757082a1edab78c9784d63a"
+   },
+   {
+    "path": "hooks/pre_tool.py",
+    "mode": "100644",
+    "git_blob": "9781a0e0d9a99c5d84e25bd8c24d71b4a3316e3b",
+    "sha256": "f78477ee5ac5455d887f2939a25f30d06bdb67b67d4a6b3c90eed407c726aea8"
+   },
+   {
+    "path": "hooks/prompt.py",
+    "mode": "100644",
+    "git_blob": "fac1c4ba33fa19c848493c2f9acffee641ec17ec",
+    "sha256": "4e4c419a190b7acdafa713d6ddceaa2438c89c68758e085daa4a1ea18644ad66"
+   },
+   {
+    "path": "hooks/session_start.py",
+    "mode": "100644",
+    "git_blob": "648758ce0b807611612aed80b2553f11d24ac34a",
+    "sha256": "67d8cb82dc5d1c9e94a687dcfb613d931140dec112ba63a6cca85a3fd28e18fb"
+   },
+   {
+    "path": "hooks/stop.py",
+    "mode": "100644",
+    "git_blob": "0e45792459cfd2dc9bae61887aeb4b8a74366a29",
+    "sha256": "de86ce1d0a311ddb09eea22640131fe62df366350372a47737369677d23160e8"
+   },
+   {
+    "path": "hunsu-judgments.json",
+    "mode": "100644",
+    "git_blob": "b6f9bfdffea981ff961b3c4356276743fd438a3b",
+    "sha256": "2eb2d7d5677bf3132f88665889101e274ddc4260c757cde6e099e2cbb04a0022"
+   },
+   {
+    "path": "hunsu.json",
+    "mode": "100644",
+    "git_blob": "ca3757de41e5714e06922cccc2bef66dfd9ff406",
+    "sha256": "6900dba2dbfb282551b249623dc55730ca07f3380650f82f6cc0445fa936f77b"
+   },
+   {
+    "path": "hunsu.lock.json",
+    "mode": "100644",
+    "git_blob": "59271fe0e3e67e721af60254cb2087f51036de3a",
+    "sha256": "65e81f34c95469477f2e43384ae93176c66db132333aee555ab2d18da9b030ce"
+   },
+   {
+    "path": "jokbo.py",
+    "mode": "100644",
+    "git_blob": "522b4f74bc2a8e747cf98f30c09555ac02424d13",
+    "sha256": "039b14b05d73c92e45428cd1276032789d18ee7a65aa2816acbf6847dd3fbc2a"
+   },
+   {
+    "path": "plugin.json",
+    "mode": "100644",
+    "git_blob": "f7ef8c83f689d1d4fe0ed703bedcb66e69389a39",
+    "sha256": "dc32da1ac9328024530cbcc4bec87a1281dcdd710f4574d554e8a8be2e85cc9e"
+   },
+   {
+    "path": "skills/read/SKILL.md",
+    "mode": "100644",
+    "git_blob": "fd02e35eb8517bae3f81ed9b0d5935fc34bebda9",
+    "sha256": "d24048fadeecf6eb63cee338366cadfff22e43452361d4b6a1f4565032db80b6"
+   },
+   {
+    "path": "test_jokbo.py",
+    "mode": "100644",
+    "git_blob": "3787843da26a1c153f5d0b95c51dc85527e7bb3b",
+    "sha256": "53af51e20d924d708bd054edd00a8adc82b437a7b4b2ce03b3d820591bb248d1"
+   }
+  ]
+ },
+ "records": {
+  "scope": "final closed public records only; local raw evidence, locks, transcripts and session pointers excluded",
+  "rule": "31 files byte-identical to the private originals; 1 derived by one exact replacement of an absolute machine path in one JSON string",
+  "files": [
+   {
+    "path": ".chongdae/.gitignore",
+    "original_sha256": "aafbe4ac09e3ce380be4f87c0cbab19e3601a71bc02a551a8aa6c48576dc0f3b",
+    "public_sha256": "aafbe4ac09e3ce380be4f87c0cbab19e3601a71bc02a551a8aa6c48576dc0f3b",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/asked/environment.newbie.json",
+    "original_sha256": "2b9c3bb9162e0c70c55d07ab8cf85b7e17ced119a7be39476059bfe03e8222f2",
+    "public_sha256": "2b9c3bb9162e0c70c55d07ab8cf85b7e17ced119a7be39476059bfe03e8222f2",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/asked/environment.verify.json",
+    "original_sha256": "1eba375fc828af7f7ec61b9385a5fcb5aea4694ab605390bf6b78a7048779501",
+    "public_sha256": "1eba375fc828af7f7ec61b9385a5fcb5aea4694ab605390bf6b78a7048779501",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/plan.json",
+    "original_sha256": "23df88faec63449d100ea92210793fcf446fbce6d25bdc63375ad3ce7df185ca",
+    "public_sha256": "23df88faec63449d100ea92210793fcf446fbce6d25bdc63375ad3ce7df185ca",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/state.json",
+    "original_sha256": "c3b706878a830f96a35c5881b8ad97d9ac6c471c4590fa1cad50d2895d17f941",
+    "public_sha256": "c3b706878a830f96a35c5881b8ad97d9ac6c471c4590fa1cad50d2895d17f941",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/tasks/env.json",
+    "original_sha256": "82a8377b7c411e89480011b058ed74839795dd7f69aff5190fab6d6c91fef1c9",
+    "public_sha256": "82a8377b7c411e89480011b058ed74839795dd7f69aff5190fab6d6c91fef1c9",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/tasks/environment.json",
+    "original_sha256": "09da378cb7fcd57a62aa8772756f7ed6c4f70da50f0e3328d2a42e68f1275367",
+    "public_sha256": "f3b3595b36b4def0ddd15e060275d67a2b89fca0c9fb738846718bf951e6f739",
+    "derivation": "one exact machine-path replacement in one JSON string",
+    "changed_json_leaves": [
+     [
+      "stages",
+      "newbie",
+      "response",
+      "tried",
+      "1",
+      "command"
+     ]
+    ]
+   },
+   {
+    "path": ".chongdae/run-20261030-063525-2d81/tasks/provenance.json",
+    "original_sha256": "5f2b8b6fa6c2db583266919265032e725c6d584dc8e21a327036e729d2216235",
+    "public_sha256": "5f2b8b6fa6c2db583266919265032e725c6d584dc8e21a327036e729d2216235",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/asked/containment.verify.json",
+    "original_sha256": "bf971b500f40982c5cd02a3b102421dbf5c737201f7dc2d49956015788b736f2",
+    "public_sha256": "bf971b500f40982c5cd02a3b102421dbf5c737201f7dc2d49956015788b736f2",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/asked/prior-adoption.verify.json",
+    "original_sha256": "85c6cef52633eb83089f07092f1c26818c03da4f6bfda0235b848de08826c49e",
+    "public_sha256": "85c6cef52633eb83089f07092f1c26818c03da4f6bfda0235b848de08826c49e",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/asked/record-hygiene.verify.json",
+    "original_sha256": "5835e160d64f6a12328fb5eda8149fc3108d02ca58235ce964ea15abb5403602",
+    "public_sha256": "5835e160d64f6a12328fb5eda8149fc3108d02ca58235ce964ea15abb5403602",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/asked/version-policy.verify.json",
+    "original_sha256": "6c4db7ae7f4557b3062f9d006058dae7c352cf5d6462ca61b8bee15d091ddf54",
+    "public_sha256": "6c4db7ae7f4557b3062f9d006058dae7c352cf5d6462ca61b8bee15d091ddf54",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/plan.json",
+    "original_sha256": "45ee0530b242c8b50f55cdf6027d8f879e4f6961744edf5ba583032ebf0149e8",
+    "public_sha256": "45ee0530b242c8b50f55cdf6027d8f879e4f6961744edf5ba583032ebf0149e8",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/state.json",
+    "original_sha256": "1f93fe25293c25c17b04ddb432fb70d5224b624fbff34d04252b9df7941f38cc",
+    "public_sha256": "1f93fe25293c25c17b04ddb432fb70d5224b624fbff34d04252b9df7941f38cc",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/tasks/containment.json",
+    "original_sha256": "3980d2230a0c6b375a2765a78104c6f81d79b7b0ba189c3ae609b3de1c9b93f7",
+    "public_sha256": "3980d2230a0c6b375a2765a78104c6f81d79b7b0ba189c3ae609b3de1c9b93f7",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/tasks/prior-adoption.json",
+    "original_sha256": "12caadacc78b73315b41f09df7bc1b0441d7441e58e1d39f4441303e39c07f56",
+    "public_sha256": "12caadacc78b73315b41f09df7bc1b0441d7441e58e1d39f4441303e39c07f56",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/tasks/record-hygiene.json",
+    "original_sha256": "f56d1f836ee294b3576b59187201a04413af1ff229afa0d5e152cbf56663cbf9",
+    "public_sha256": "f56d1f836ee294b3576b59187201a04413af1ff229afa0d5e152cbf56663cbf9",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-080105-b347/tasks/version-policy.json",
+    "original_sha256": "f8d13a0e430dcbb4e31c620b3c751314f19bdf7893daa985a2364abba34736ee",
+    "public_sha256": "f8d13a0e430dcbb4e31c620b3c751314f19bdf7893daa985a2364abba34736ee",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/asked/adoption-boundary.verify.json",
+    "original_sha256": "03ebf8d5493c5ba3cb563b89e2064a1b0351fe76f9783b6674bb84cf39174970",
+    "public_sha256": "03ebf8d5493c5ba3cb563b89e2064a1b0351fe76f9783b6674bb84cf39174970",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/asked/target-resolution.verify.json",
+    "original_sha256": "ede6a7c38d51f1335df3843083b6957e124aae35fb9459660e55258663d796be",
+    "public_sha256": "ede6a7c38d51f1335df3843083b6957e124aae35fb9459660e55258663d796be",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/plan.json",
+    "original_sha256": "d657207aa2ec36e0b3e75c51fb3524e1d8ef704ca41e8ae428aa581ccd184598",
+    "public_sha256": "d657207aa2ec36e0b3e75c51fb3524e1d8ef704ca41e8ae428aa581ccd184598",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/state.json",
+    "original_sha256": "67dc2639e14e7d133e9ff7c8e999584ffeda221c98721ff44db3401dbd2a1cc8",
+    "public_sha256": "67dc2639e14e7d133e9ff7c8e999584ffeda221c98721ff44db3401dbd2a1cc8",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/tasks/adoption-boundary.json",
+    "original_sha256": "1818b5b6d73483433bfdbd03e02f6a1cff280e58750b8c84f5dba28afd168eab",
+    "public_sha256": "1818b5b6d73483433bfdbd03e02f6a1cff280e58750b8c84f5dba28afd168eab",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-083444-dd10/tasks/target-resolution.json",
+    "original_sha256": "3717aaf145d66da0e02cab791a12b73514f26f9c860ef3c6782ceea5a3b554af",
+    "public_sha256": "3717aaf145d66da0e02cab791a12b73514f26f9c860ef3c6782ceea5a3b554af",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-094043-1de2/asked/v2-candidate.verify.json",
+    "original_sha256": "8f97e39399fb54047693b261c10a38670daa4157adf622ca2e0f5401d97de8d1",
+    "public_sha256": "8f97e39399fb54047693b261c10a38670daa4157adf622ca2e0f5401d97de8d1",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-094043-1de2/plan.json",
+    "original_sha256": "075b8719b989a461993363fc3c536ff48c74291c3cf592ddaaa0362ba8f4af8f",
+    "public_sha256": "075b8719b989a461993363fc3c536ff48c74291c3cf592ddaaa0362ba8f4af8f",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-094043-1de2/state.json",
+    "original_sha256": "9f9d12d99097a4e9f750021b22c93d7e094ab5fb4939a1da2dcbac6de2c26dd6",
+    "public_sha256": "9f9d12d99097a4e9f750021b22c93d7e094ab5fb4939a1da2dcbac6de2c26dd6",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": ".chongdae/run-20261030-094043-1de2/tasks/v2-candidate.json",
+    "original_sha256": "bc33b7a377958405bd514350ce18420c541cdbe6c68780335c569ec71262eca3",
+    "public_sha256": "bc33b7a377958405bd514350ce18420c541cdbe6c68780335c569ec71262eca3",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": "reviews/review-20261030-155017-bab4.json",
+    "original_sha256": "42857f6e477d55b886bf9551495a1f9d051e54f854ed5de70f54ef046e508a0c",
+    "public_sha256": "42857f6e477d55b886bf9551495a1f9d051e54f854ed5de70f54ef046e508a0c",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": "reviews/review-20261030-171225-0c89.json",
+    "original_sha256": "ff0e184f3ccfb7df6d6e84d3ea99caac5f73567025274ef574d2f7355cbd6d41",
+    "public_sha256": "ff0e184f3ccfb7df6d6e84d3ea99caac5f73567025274ef574d2f7355cbd6d41",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": "reviews/review-20261030-173805-0b9b.json",
+    "original_sha256": "9aee78e23e3e07f9491de352f91bf3c6453a350f2d08aef1a0417194e2978543",
+    "public_sha256": "9aee78e23e3e07f9491de352f91bf3c6453a350f2d08aef1a0417194e2978543",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   },
+   {
+    "path": "reviews/review-20261030-184548-2ea1.json",
+    "original_sha256": "646034babcedbdb91cbac4591870bd62ab19da32d2ea45310ea370042dd68265",
+    "public_sha256": "646034babcedbdb91cbac4591870bd62ab19da32d2ea45310ea370042dd68265",
+    "derivation": "byte-identical",
+    "changed_json_leaves": []
+   }
+  ],
+  "replace_the_source_commits_record_paths": [
+   ".chongdae/.gitignore",
+   ".chongdae/run-20261030-063525-2d81/asked/environment.newbie.json",
+   ".chongdae/run-20261030-063525-2d81/asked/environment.verify.json",
+   ".chongdae/run-20261030-063525-2d81/plan.json",
+   ".chongdae/run-20261030-063525-2d81/state.json",
+   ".chongdae/run-20261030-063525-2d81/tasks/env.json",
+   ".chongdae/run-20261030-063525-2d81/tasks/environment.json",
+   ".chongdae/run-20261030-063525-2d81/tasks/provenance.json",
+   ".chongdae/run-20261030-080105-b347/plan.json",
+   ".chongdae/run-20261030-080105-b347/state.json",
+   "reviews/review-20261030-155017-bab4.json"
+  ],
+  "not_shipped": [
+   {
+    "path": ".chongdae/run-20261030-080105-b347/state.json",
+    "why": "the source commit holds this run's initial running state, committed at its init before records stopped being committed; the run's final complete state is shipped instead"
+   }
+  ],
+  "excluded": {
+   "local raw (requests, responses, transcripts, logs, pending, launch locks)": 87,
+   "machine session pointer (.chongdae/sessions, gitignored)": 2,
+   "lock": 1
+  },
+  "retained_by_classification": "the relative references ../.umbrella and ../jokbo.py and the reserved fixture address fixture@example.invalid are kept as written: portable, not a machine or account detail",
+  "derived_text": "the derived record is not the provider's original answer and not an input for validating quotes against it; the original stays private and unchanged",
+  "inputs_sha256": {
+   "derivation": "17a6db30a456587153f5efa69bee24b30e1fb76acaae5b428d21ee5670a4e545",
+   "record_inventory": "fcee53663e1a349251ca9c1a5a8162749a59a652b077279c5ab2a1b9e3c903fc",
+   "classification": "91d34313200133b8b4915c24824d92aeea53d12e7cfc0a84676c292c8ce917d4",
+   "generator": "5e5aa708da4897429401afb899eefb53e21a154c801553a5863b9925dee18e8b"
+  }
+ },
+ "review": {
+  "projection": "read by a fresh declared verifier in the private self-hosting session (run-20261030-103045-5d9e, task public-export); its verdict and record stay outside this payload"
+ },
+ "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are the environment as locked from released 1.x engines (the lock pins jokbo 1.8.1): the released generation managing this next-generation source, which was not installed",
+ "not_claimed": [
+  "a release: no tag, push or install was made with this export",
+  "a person's review of the three resolutions marked reviewed: false in hunsu.json; no person has read them",
+  "disposal of the objections and non-claims the shipped reviews still hold open",
+  "a Codex host environment check: released hunsu 1.15.1 counts Codex's .codex-marketplace-install.json, so its Codex-view check fails for hunsu, mangsang and jokbo",
+  "runtime privacy fixes in the engines; they are a separate release gate"
+ ]
+}

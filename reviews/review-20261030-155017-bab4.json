@@ -1,0 +1,104 @@
+{
+  "artifact-type": "dwitbuk/review@1",
+  "id": "review-20261030-155017-bab4",
+  "since": "76a1530",
+  "head": "e9a174a28c6b1baca57c8a8e8d97dfa077b3626b",
+  "findings": [
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['working toward a stated goal or carrying out a plan']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['reviewing, disputing or testing a change']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['asking what happened, what is open or what changed']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-063525-2d81/env",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (codex gpt-6-astra)): hunsu's compose skill makes the manifest edit and 'hunsu lock' the session's own step: hunsu.json and hunsu.lock.json are hunsu's records, written by its engine; a hired builder would rewrite the environment that hires it",
+      "layer": "observation"
+    },
+    {
+      "kind": "session-judged",
+      "where": "run-20261030-063525-2d81/env",
+      "text": "drop decided by the session (claude-code claude-opus-5-5), not a person: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers.",
+      "layer": "observation"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-063525-2d81/environment",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): hunsu's compose skill makes the manifest edit and 'hunsu lock' the session's own step: hunsu.json and hunsu.lock.json are hunsu's records, written by its engine; a hired builder would rewrite the environment that hires it",
+      "layer": "observation"
+    },
+    {
+      "kind": "session-judged",
+      "where": "run-20261030-063525-2d81/environment",
+      "text": "adopt hunsu.json, hunsu.lock.json decided by the session (claude-code claude-opus-5-5), not a person: Written by this session (claude-opus-5-5) for task 'env' before this task was added: the roles/reporters edit to hunsu.json and the 'hunsu lock' that rewrote hunsu.lock.json. 'env' was dropped only for its defective check, so its work is this task's. hunsu-judgments.json is unchanged (byte-identical; no judge round, since the lock reports no changed situation).",
+      "layer": "observation"
+    },
+    {
+      "kind": "stage-finding",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "surprise @ : The README does not explain that the target directory is resolved to an enclosing repository. — “when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.”",
+      "layer": "objection"
+    },
+    {
+      "kind": "stage-finding",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "unclear @ : Following this instruction did not provide a way to verify the environment adoption requested by the goal. — “reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.”",
+      "layer": "objection"
+    },
+    {
+      "kind": "outside-run",
+      "where": "AGENTS.md, CLAUDE.md, README.md, plugin.json",
+      "text": "4 file(s) changed since 76a1530; no completed run recorded touching them",
+      "layer": "objection"
+    },
+    {
+      "kind": "outside-run",
+      "where": ".claude-plugin/plugin.json",
+      "text": "1 file(s) changed since 76a1530; no completed run recorded touching them",
+      "layer": "objection"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "no check decides this task  [task provenance]",
+      "layer": "objection"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`  [task provenance]",
+      "layer": "objection"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "no session transcript here: what the session did for this task is its word alone  [task provenance]",
+      "layer": "objection"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers.  [task env]",
+      "layer": "objection"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact-type": "chongdae/request@1",
+  "written_by": "chongdae 1.24.0",
+  "stage": "verify",
+  "run": "run-20261030-080105-b347",
+  "task": "containment",
+  "role": "verifier",
+  "target": ".",
+  "goal": "Resume the jokbo self-host session: review and adopt the owner-authorized prior docs, AGENTS/CLAUDE and Python >=3.11 changes as earlier work, add the missing version policy, and fix repository record hygiene (not a claim that all six project loops are complete)",
+  "brief": "Containment, machine-local only: set settings.chongdae.commit-records to false in hunsu.local.json (gitignored, never committed), the overlay chongdae's settings() reads over hunsu.json. From then on this run's records, including every worker request and response, are written to .chongdae/ but not committed by the engine. Reason: the previous run's engine commit 9d458a2 on the private, unpushed branch selfhost/env-adoption committed a newbie answer whose tried[].command holds a local absolute path. Limits, stated plainly: this does not fix or rewrite that historical commit, which is preserved as evidence; it does not change hunsu.json, the lock, or any engine; this run's init record (3b8fb35) was committed by the engine before the setting existed (it holds no worker response and no local path); and records written while the setting stands stay uncommitted on disk unless someone commits them deliberately. Normal hooks, gates, the verifier and the reviewer are unchanged.",
+  "closes": [],
+  "contract": {},
+  "checks": [
+    [
+      "python3",
+      "-c",
+      "import sys; sys.path.insert(0, '{plugin:chongdae}'); import chongdae; s = chongdae.settings('.'); print('settings.chongdae', s); sys.exit(0 if s.get('commit-records') is False else 1)"
+    ]
+  ],
+  "tests": [],
+  "response": "./.chongdae/run-20261030-080105-b347/local/containment.verify.response.json",
+  "touched": [],
+  "built": null,
+  "excluded": {
+    "record-paths": []
+  },
+  "since": {
+    ".": "3b8fb35c868698a569034ade896cd0b3e18ab5ba"
+  },
+  "checked": [
+    {
+      "command": "python3 -c 'import sys; sys.path.insert(0, '\"'\"'{plugin:chongdae}'\"'\"'); import chongdae; s = chongdae.settings('\"'\"'.'\"'\"'); print('\"'\"'settings.chongdae'\"'\"', s); sys.exit(0 if s.get('\"'\"'commit-records'\"'\"') is False else 1)'",
+      "exit": 0,
+      "tail": [
+        "settings.chongdae {'commit-records': False}"
+      ],
+      "at": "2026-10-30T08:01:45+00:00",
+      "chongdae": "chongdae 1.24.0",
+      "source": "the task's checks, run by chongdae to decide it",
+      "changed_since": []
+    }
+  ]
+}

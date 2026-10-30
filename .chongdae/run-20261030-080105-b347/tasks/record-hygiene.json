@@ -1,0 +1,220 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "record-hygiene",
+    "role": "session",
+    "brief": "Local repository hygiene, NEW work by this run. dwitbuk's runtime lock .dwitbuk/review.lock was tracked by the previous run's close commit 86fa350. Confirmed before acting: it is the ReviewLock coordination file (dwitbuk 1.16.0: opened 'a+b' and held by fcntl.flock; 'Never unlink the lock inode; process exit releases it'); it is empty on disk (0 bytes, inode 17328655) and in git (the empty blob e69de29); no process held it. Do: 'git rm --cached .dwitbuk/review.lock' (index only: the file and its inode stay on disk, no unlink and no recreate), and add the exact ignore line '.dwitbuk/review.lock' to .gitignore. No broader rule: reviews/ and any other .dwitbuk/ record stay trackable. reviews/review-20261030-155017-bab4.json and every review artifact are preserved untouched. No sibling engine edit. Limits: this stops the lock being tracked from here on; it does not remove it from history (86fa350 still has it), does not fix or touch the historical private-path record in 9d458a2 and does not claim to, and does not stop a later dwitbuk on Windows from writing its 1-byte lock (now ignored).",
+    "closes": [],
+    "needs": [],
+    "checks": [
+      [
+        "python3",
+        "-c",
+        "import os, subprocess, sys; st = os.stat('.dwitbuk/review.lock'); tracked = subprocess.run(['git', 'ls-files', '--error-unmatch', '.dwitbuk/review.lock'], capture_output=True).returncode == 0; print('review.lock on disk: inode', st.st_ino, 'size', st.st_size, '(same inode as before: %s)' % (st.st_ino == 17328655), '| still in the index:', tracked); sys.exit(0 if st.st_ino == 17328655 and st.st_size == 0 and not tracked else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import subprocess, sys; v = subprocess.run(['git', 'check-ignore', '-v', '.dwitbuk/review.lock'], capture_output=True, text=True).stdout.strip(); rule = v.split(chr(9))[0].rsplit(':', 1)[-1] if v else None; exact = '.dwitbuk/review.lock' in [l.strip() for l in open('.gitignore')]; w = subprocess.run(['git', 'check-ignore', 'reviews/review-20261030-155017-bab4.json', '.dwitbuk/other-record.json', 'reviews/new.json'], capture_output=True, text=True); wider = w.stdout.split() if w.returncode in (0, 1) else ['check-ignore failed']; print('ignored by rule:', rule, '| exact line present:', exact, '| reviews/ or other .dwitbuk/ paths ignored too:', wider); sys.exit(0 if rule == '.dwitbuk/review.lock' and exact and not wider else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import subprocess, sys; t = 'reviews/review-20261030-155017-bab4.json' in subprocess.run(['git', 'ls-files', 'reviews'], capture_output=True, text=True).stdout.split(); same = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'reviews/review-20261030-155017-bab4.json']).returncode == 0 and subprocess.run(['git', 'diff', '--cached', '--quiet', 'HEAD', '--', 'reviews']).returncode == 0; print('prior review JSON still tracked:', t, '| unchanged, nothing staged under reviews/:', same); sys.exit(0 if t and same else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import subprocess, sys; s = sorted(l for l in subprocess.run(['git', 'diff', '--cached', '--name-status', 'HEAD'], capture_output=True, text=True).stdout.split(chr(10)) if l); g = [l for l in subprocess.run(['git', 'diff', '--cached', '-U0', 'HEAD', '--', '.gitignore'], capture_output=True, text=True).stdout.split(chr(10)) if l and l[0] in '+-' and not l.startswith(('+++', '---'))]; c = subprocess.run(['git', 'diff', '--cached', '--check', 'HEAD'], capture_output=True).returncode; print('staged:', s, '| .gitignore lines changed:', g, '| diff --check exit', c); sys.exit(0 if s == ['D' + chr(9) + '.dwitbuk/review.lock', 'M' + chr(9) + '.gitignore'] and g == ['+.dwitbuk/review.lock'] and c == 0 else 1)"
+      ]
+    ],
+    "tests": [],
+    "gate": null,
+    "scope": [
+      ".dwitbuk/review.lock",
+      ".gitignore"
+    ]
+  },
+  "seq": 4,
+  "added": "2026-10-30T08:10:05+00:00",
+  "self-performed": {
+    "instead-of": "implementer",
+    "why": "an index-only removal and a one-line ignore rule, whose risk is touching a live lock inode; the session does it with checks that pin the inode, rather than hand a worker a git index change",
+    "by": {
+      "agent": "claude-code claude-opus-5-5"
+    },
+    "at": "2026-10-30T08:10:17+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "checks-added": [
+    {
+      "checks": [
+        [
+          "python3",
+          "-c",
+          "import os, subprocess, sys; st = os.stat('.dwitbuk/review.lock'); tracked = subprocess.run(['git', 'ls-files', '--error-unmatch', '.dwitbuk/review.lock'], capture_output=True).returncode == 0; print('review.lock on disk: inode', st.st_ino, 'size', st.st_size, '(same inode as before: %s)' % (st.st_ino == 17328655), '| still in the index:', tracked); sys.exit(0 if st.st_ino == 17328655 and st.st_size == 0 and not tracked else 1)"
+        ],
+        [
+          "python3",
+          "-c",
+          "import subprocess, sys; v = subprocess.run(['git', 'check-ignore', '-v', '.dwitbuk/review.lock'], capture_output=True, text=True).stdout.strip(); rule = v.split(chr(9))[0].rsplit(':', 1)[-1] if v else None; exact = '.dwitbuk/review.lock' in [l.strip() for l in open('.gitignore')]; w = subprocess.run(['git', 'check-ignore', 'reviews/review-20261030-155017-bab4.json', '.dwitbuk/other-record.json', 'reviews/new.json'], capture_output=True, text=True); wider = w.stdout.split() if w.returncode in (0, 1) else ['check-ignore failed']; print('ignored by rule:', rule, '| exact line present:', exact, '| reviews/ or other .dwitbuk/ paths ignored too:', wider); sys.exit(0 if rule == '.dwitbuk/review.lock' and exact and not wider else 1)"
+        ],
+        [
+          "python3",
+          "-c",
+          "import subprocess, sys; t = 'reviews/review-20261030-155017-bab4.json' in subprocess.run(['git', 'ls-files', 'reviews'], capture_output=True, text=True).stdout.split(); same = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'reviews/review-20261030-155017-bab4.json']).returncode == 0 and subprocess.run(['git', 'diff', '--cached', '--quiet', 'HEAD', '--', 'reviews']).returncode == 0; print('prior review JSON still tracked:', t, '| unchanged, nothing staged under reviews/:', same); sys.exit(0 if t and same else 1)"
+        ],
+        [
+          "python3",
+          "-c",
+          "import subprocess, sys; s = sorted(l for l in subprocess.run(['git', 'diff', '--cached', '--name-status', 'HEAD'], capture_output=True, text=True).stdout.split(chr(10)) if l); g = [l for l in subprocess.run(['git', 'diff', '--cached', '-U0', 'HEAD', '--', '.gitignore'], capture_output=True, text=True).stdout.split(chr(10)) if l and l[0] in '+-' and not l.startswith(('+++', '---'))]; c = subprocess.run(['git', 'diff', '--cached', '--check', 'HEAD'], capture_output=True).returncode; print('staged:', s, '| .gitignore lines changed:', g, '| diff --check exit', c); sys.exit(0 if s == ['D' + chr(9) + '.dwitbuk/review.lock', 'M' + chr(9) + '.gitignore'] and g == ['+.dwitbuk/review.lock'] and c == 0 else 1)"
+        ]
+      ],
+      "by": {
+        "agent": "claude-code claude-opus-5-5"
+      },
+      "at": "2026-10-30T08:10:17+00:00",
+      "chongdae": "chongdae 1.24.0"
+    }
+  ],
+  "checks-passed": {
+    "ran": [
+      {
+        "command": "python3 -c 'import os, subprocess, sys; st = os.stat('\"'\"'.dwitbuk/review.lock'\"'\"'); tracked = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'ls-files'\"'\"', '\"'\"'--error-unmatch'\"'\"', '\"'\"'.dwitbuk/review.lock'\"'\"'], capture_output=True).returncode == 0; print('\"'\"'review.lock on disk: inode'\"'\"', st.st_ino, '\"'\"'size'\"'\"', st.st_size, '\"'\"'(same inode as before: %s)'\"'\"' % (st.st_ino == 17328655), '\"'\"'| still in the index:'\"'\"', tracked); sys.exit(0 if st.st_ino == 17328655 and st.st_size == 0 and not tracked else 1)'",
+        "exit": 0,
+        "tail": [
+          "review.lock on disk: inode 17328655 size 0 (same inode as before: True) | still in the index: False"
+        ],
+        "at": "2026-10-30T08:10:57+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import subprocess, sys; v = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'check-ignore'\"'\"', '\"'\"'-v'\"'\"', '\"'\"'.dwitbuk/review.lock'\"'\"'], capture_output=True, text=True).stdout.strip(); rule = v.split(chr(9))[0].rsplit('\"'\"':'\"'\"', 1)[-1] if v else None; exact = '\"'\"'.dwitbuk/review.lock'\"'\"' in [l.strip() for l in open('\"'\"'.gitignore'\"'\"')]; w = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'check-ignore'\"'\"', '\"'\"'reviews/review-20261030-155017-bab4.json'\"'\"', '\"'\"'.dwitbuk/other-record.json'\"'\"', '\"'\"'reviews/new.json'\"'\"'], capture_output=True, text=True); wider = w.stdout.split() if w.returncode in (0, 1) else ['\"'\"'check-ignore failed'\"'\"']; print('\"'\"'ignored by rule:'\"'\"', rule, '\"'\"'| exact line present:'\"'\"', exact, '\"'\"'| reviews/ or other .dwitbuk/ paths ignored too:'\"'\"', wider); sys.exit(0 if rule == '\"'\"'.dwitbuk/review.lock'\"'\"' and exact and not wider else 1)'",
+        "exit": 0,
+        "tail": [
+          "ignored by rule: .dwitbuk/review.lock | exact line present: True | reviews/ or other .dwitbuk/ paths ignored too: []"
+        ],
+        "at": "2026-10-30T08:10:57+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import subprocess, sys; t = '\"'\"'reviews/review-20261030-155017-bab4.json'\"'\"' in subprocess.run(['\"'\"'git'\"'\"', '\"'\"'ls-files'\"'\"', '\"'\"'reviews'\"'\"'], capture_output=True, text=True).stdout.split(); same = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--quiet'\"'\"', '\"'\"'HEAD'\"'\"', '\"'\"'--'\"'\"', '\"'\"'reviews/review-20261030-155017-bab4.json'\"'\"']).returncode == 0 and subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--cached'\"'\"', '\"'\"'--quiet'\"'\"', '\"'\"'HEAD'\"'\"', '\"'\"'--'\"'\"', '\"'\"'reviews'\"'\"']).returncode == 0; print('\"'\"'prior review JSON still tracked:'\"'\"', t, '\"'\"'| unchanged, nothing staged under reviews/:'\"'\"', same); sys.exit(0 if t and same else 1)'",
+        "exit": 0,
+        "tail": [
+          "prior review JSON still tracked: True | unchanged, nothing staged under reviews/: True"
+        ],
+        "at": "2026-10-30T08:10:57+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import subprocess, sys; s = sorted(l for l in subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--cached'\"'\"', '\"'\"'--name-status'\"'\"', '\"'\"'HEAD'\"'\"'], capture_output=True, text=True).stdout.split(chr(10)) if l); g = [l for l in subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--cached'\"'\"', '\"'\"'-U0'\"'\"', '\"'\"'HEAD'\"'\"', '\"'\"'--'\"'\"', '\"'\"'.gitignore'\"'\"'], capture_output=True, text=True).stdout.split(chr(10)) if l and l[0] in '\"'\"'+-'\"'\"' and not l.startswith(('\"'\"'+++'\"'\"', '\"'\"'---'\"'\"'))]; c = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--cached'\"'\"', '\"'\"'--check'\"'\"', '\"'\"'HEAD'\"'\"'], capture_output=True).returncode; print('\"'\"'staged:'\"'\"', s, '\"'\"'| .gitignore lines changed:'\"'\"', g, '\"'\"'| diff --check exit'\"'\"', c); sys.exit(0 if s == ['\"'\"'D'\"'\"' + chr(9) + '\"'\"'.dwitbuk/review.lock'\"'\"', '\"'\"'M'\"'\"' + chr(9) + '\"'\"'.gitignore'\"'\"'] and g == ['\"'\"'+.dwitbuk/review.lock'\"'\"'] and c == 0 else 1)'",
+        "exit": 0,
+        "tail": [
+          "staged: ['D\\t.dwitbuk/review.lock', 'M\\t.gitignore'] | .gitignore lines changed: ['+.dwitbuk/review.lock'] | diff --check exit 0"
+        ],
+        "at": "2026-10-30T08:10:57+00:00",
+        "chongdae": "chongdae 1.24.0"
+      }
+    ],
+    "at": "2026-10-30T08:10:57+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "review": {
+    "artifact-type": "dwitbuk/review@1",
+    "verdict": "accept",
+    "findings": [],
+    "worker": {
+      "host": "claude-code",
+      "model": "claude-opus-5-5",
+      "turns": 3,
+      "cost_usd": 0.061825399999999996
+    }
+  },
+  "verdict-given": {
+    "at": "2026-10-30T08:11:04+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "reviewed_tree": {
+    ".gitignore": "e5e7a757f406a277c014928c625bd8dc4eb404e8"
+  },
+  "verified_by": {
+    "provider": "command",
+    "argv": [
+      "python3",
+      "{plugin:dwitbuk}/eyes_worker.py",
+      "--request",
+      "{request}",
+      "--response",
+      "{response}",
+      "--host",
+      "claude"
+    ],
+    "host": "claude-code",
+    "model": "claude-opus-5-5",
+    "turns": 3,
+    "cost_usd": 0.061825399999999996,
+    "versions": {
+      "used": {
+        "dwitbuk": "1.16.0",
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 0,
+      "commands-failed": 0
+    }
+  },
+  "checks": [
+    [
+      "python3",
+      "-c",
+      "import os, subprocess, sys; st = os.stat('.dwitbuk/review.lock'); tracked = subprocess.run(['git', 'ls-files', '--error-unmatch', '.dwitbuk/review.lock'], capture_output=True).returncode == 0; print('review.lock on disk: inode', st.st_ino, 'size', st.st_size, '(same inode as before: %s)' % (st.st_ino == 17328655), '| still in the index:', tracked); sys.exit(0 if st.st_ino == 17328655 and st.st_size == 0 and not tracked else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; v = subprocess.run(['git', 'check-ignore', '-v', '.dwitbuk/review.lock'], capture_output=True, text=True).stdout.strip(); rule = v.split(chr(9))[0].rsplit(':', 1)[-1] if v else None; exact = '.dwitbuk/review.lock' in [l.strip() for l in open('.gitignore')]; w = subprocess.run(['git', 'check-ignore', 'reviews/review-20261030-155017-bab4.json', '.dwitbuk/other-record.json', 'reviews/new.json'], capture_output=True, text=True); wider = w.stdout.split() if w.returncode in (0, 1) else ['check-ignore failed']; print('ignored by rule:', rule, '| exact line present:', exact, '| reviews/ or other .dwitbuk/ paths ignored too:', wider); sys.exit(0 if rule == '.dwitbuk/review.lock' and exact and not wider else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; t = 'reviews/review-20261030-155017-bab4.json' in subprocess.run(['git', 'ls-files', 'reviews'], capture_output=True, text=True).stdout.split(); same = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'reviews/review-20261030-155017-bab4.json']).returncode == 0 and subprocess.run(['git', 'diff', '--cached', '--quiet', 'HEAD', '--', 'reviews']).returncode == 0; print('prior review JSON still tracked:', t, '| unchanged, nothing staged under reviews/:', same); sys.exit(0 if t and same else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; s = sorted(l for l in subprocess.run(['git', 'diff', '--cached', '--name-status', 'HEAD'], capture_output=True, text=True).stdout.split(chr(10)) if l); g = [l for l in subprocess.run(['git', 'diff', '--cached', '-U0', 'HEAD', '--', '.gitignore'], capture_output=True, text=True).stdout.split(chr(10)) if l and l[0] in '+-' and not l.startswith(('+++', '---'))]; c = subprocess.run(['git', 'diff', '--cached', '--check', 'HEAD'], capture_output=True).returncode; print('staged:', s, '| .gitignore lines changed:', g, '| diff --check exit', c); sys.exit(0 if s == ['D' + chr(9) + '.dwitbuk/review.lock', 'M' + chr(9) + '.gitignore'] and g == ['+.dwitbuk/review.lock'] and c == 0 else 1)"
+    ]
+  ],
+  "touched": [
+    ".dwitbuk/review.lock",
+    ".gitignore"
+  ],
+  "performed_by": {
+    "provider": "session",
+    "host": "claude-code",
+    "agent": "claude-code_2-1-314_agent",
+    "effort": "xhigh",
+    "model": "claude-opus-5-5",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [
+        "edit ./.gitignore"
+      ],
+      "commands-run": 5,
+      "command-lines": "kept in the local session transcript, not in the record",
+      "window-from": "2026-10-30T08:10:05+00:00"
+    }
+  },
+  "done": {
+    "at": "2026-10-30T08:11:04+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

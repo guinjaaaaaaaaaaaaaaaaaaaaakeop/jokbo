@@ -1,0 +1,261 @@
+{
+  "artifact-type": "chongdae/task@1",
+  "written_by": "chongdae 1.24.0",
+  "status": "done",
+  "def": {
+    "id": "v2-candidate",
+    "role": "session",
+    "brief": "Prepare the jokbo 2.0.0 CANDIDATE. This is release preparation only: no tag, push, release or install. The branch stays private, and a clean public history is prepared separately. Edits: (1) the five version values go from 1.8.1 to 2.0.0: plugin.json, .claude-plugin/plugin.json, .codex-plugin/plugin.json, and .claude-plugin/marketplace.json metadata.version and plugins[jokbo].version. .agents/plugins/marketplace.json keeps having no version field. engines.python stays '>=3.11' in all three manifests. (2) README Versioning: replace the 'Pending, unreleased ... no version is bumped for it now' paragraph with a timeless, release-ready statement that 2.0.0 is that major: it raised the Python floor of plugin.json and .claude-plugin/plugin.json from 3.9 to 3.11, dropping Python 3.9 and 3.10. The major rule above it stays. Not changed: jokbo.py, hooks/, test_jokbo.py, skills/, commands/, AGENTS.md, CLAUDE.md, and every historical example in the README; no algorithm and no shared hostcall. jokbo.version() reads plugin.json and is part of the cache key, so the candidate's disposable .jokbo/ cache rebuilds. The environment stays the released one: hunsu.json, hunsu.lock.json and hunsu-judgments.json still pin jokbo 1.8.1, and the installed 1.x engines manage this 2.0.0 source, which is not installed. No instruction text changes, so there is no rejudge; the three resolutions stay reviewed:false. Checks: the version and packaging fields (jokbo.version() read under Python 3.11); the timeless wording; the exact scope since 56444b4 (four manifests change only their version lines, README only inside Versioning, no .py); links and imports; the CLI and command adapters under 3.11; the unchanged core suite test_jokbo.py, 52 checks, on Python 3.11 with a child 'python3' on PATH that is also 3.11; git diff --check.",
+    "closes": [],
+    "needs": [],
+    "checks": [
+      [
+        "python3.11",
+        "-c",
+        "import json, os, sys; sys.path.insert(0, '.'); import jokbo; L = lambda p: json.load(open(p)); m = {p: L(p) for p in ('plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json')}; mk = L('.claude-plugin/marketplace.json'); ag = L('.agents/plugins/marketplace.json'); v = {p: d['version'] for p, d in m.items()}; v['marketplace.json metadata.version'] = mk['metadata']['version']; v['marketplace.json plugins[jokbo].version'] = [p['version'] for p in mk['plugins'] if p['name'] == 'jokbo'][0]; py = {p: d.get('engines', {}).get('python') for p, d in m.items()}; agp = [p for p in ag['plugins'] if p['name'] == 'jokbo'][0]; cx = m['plugin.json']['extensions']['com.openai']['hooks']; hk = lambda f: sorted({h['command'].split('/hooks/')[1].strip(chr(34)) for g in L(f)['hooks'].values() for x in g for h in x['hooks']}); ok = set(v.values()) == {'2.0.0'} and jokbo.version() == '2.0.0' and set(py.values()) == {'>=3.11'} and agp['source']['path'] == './' and 'version' not in agp and 'version' not in ag and cx == './hooks/codex.json' and os.path.isfile(cx) and m['.codex-plugin/plugin.json']['skills'] == './skills/' and os.path.isfile('skills/read/SKILL.md') and hk('hooks/hooks.json') == hk('hooks/codex.json'); print('versions', v, '| jokbo.version() under', sys.version.split()[0], '=', jokbo.version(), '| engines.python', sorted(set(py.values())), '| .agents marketplace jokbo ./ without version:', agp['source']['path'] == './' and 'version' not in agp, '| codex hooks', cx, '| same handlers both hosts:', hk('hooks/hooks.json') == hk('hooks/codex.json')); sys.exit(0 if ok else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import sys; s = open('README.md').read(); sec = ' '.join(s[s.index('## Versioning'):s.index('### Release and adoption')].split()); stale = [w for w in ('Pending', 'unreleased', 'now declare', 'no version is bumped', 'next major') if w in sec]; need = [w for w in ('2.0.0', 'from 3.9 to 3.11', 'dropping Python 3.9 and 3.10', 'dropping a supported Python or host version') if w not in sec]; print('Versioning: stale pending wording left:', stale, '| timeless v2 statement missing:', need); sys.exit(1 if stale or need else 0)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import re, subprocess, sys; g = lambda *a: subprocess.run(['git', *a], capture_output=True, text=True).stdout; files = sorted(g('diff', '--name-only', '56444b4', '--', '.', ':(exclude).chongdae', ':(exclude)reviews').split()); meta = ['.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'plugin.json']; ch = lambda f: [l for l in g('diff', '-U0', '56444b4', '--', f).split(chr(10)) if l[:1] in ('+', '-') and not l.startswith(('+++', '---'))]; mv = {f: ch(f) for f in meta}; mok = all(len(ls) == (4 if 'marketplace' in f else 2) and all(re.fullmatch(r'[-+] *\"version\": \"(1\\.8\\.1|2\\.0\\.0)\",?', l) for l in ls) for f, ls in mv.items()); rh = [(int(a), int(b) if b else 1) for a, b in re.findall(r'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@', g('diff', '-U0', '56444b4', '--', 'README.md'), re.M)]; new = open('README.md').read().split(chr(10)); lo = new.index('## Versioning') + 1; hi = new.index('### Release and adoption') + 1; rok = bool(rh) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in rh); ok = files == sorted(meta + ['README.md']) and mok and rok; print('changed since 56444b4:', files, '| manifests change only version 1.8.1 -> 2.0.0:', mok, '| README hunks', rh, 'inside Versioning', lo, '-', hi - 1, ':', rok, '| any .py changed:', any(f.endswith('.py') for f in files)); sys.exit(0 if ok else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import os, re, sys; fence = lambda s: re.sub(r'(?ms)^\\`\\`\\`.*?^\\`\\`\\`', '', s); slug = lambda h: re.sub(r'[^\\w\\- ]', '', h.strip().lower()).replace(' ', '-'); heads = lambda f: {slug(m) for m in re.findall(r'^#+ +(.+?) *$', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('README.md', 'AGENTS.md') for l in re.findall(r'\\]\\(([^)\\s]+)\\)', fence(open(f).read())) if not l.startswith(('http://', 'https://', 'mailto:'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('#')[0]) if l.partition('#')[0] else f; bad = [f + ' -> ' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('#')[2] and l.partition('#')[2] not in heads(tgt(f, l)))]; imp = open('CLAUDE.md').read() == '@AGENTS.md\\n'; print('relative links checked:', len(links), '| broken:', bad, '| CLAUDE.md is only the AGENTS.md import:', imp); sys.exit(0 if links and not bad and imp else 1)"
+      ],
+      [
+        "python3.11",
+        "-c",
+        "import subprocess, sys; h = subprocess.run([sys.executable, 'jokbo.py', '--help'], capture_output=True, text=True); cmds = ['file', 'since', 'find', 'index', 'map', 'note']; r = {c: subprocess.run([sys.executable, 'jokbo.py', c, '--help'], capture_output=True, text=True) for c in cmds}; a = {c: 'commands/%s.md' % c for c in ('file', 'since', 'find')}; ad = {c: ('jokbo.py\" %s ' % c) in open(p).read() and '--target' in open(p).read() for c, p in a.items()}; ok = h.returncode == 0 and all(('{' + ','.join(cmds) + '}') in h.stdout for _ in [0]) and all(x.returncode == 0 and '--target' in x.stdout for x in r.values()) and all(ad.values()); print('jokbo.py --help exit', h.returncode, '| <command> --help with --target:', {c: x.returncode == 0 and '--target' in x.stdout for c, x in r.items()}, '| /jokbo:* adapters call jokbo.py:', ad); sys.exit(0 if ok else 1)"
+      ],
+      [
+        "python3.11",
+        "-c",
+        "import os, subprocess, sys, tempfile; d = tempfile.mkdtemp(); os.symlink(sys.executable, os.path.join(d, 'python3')); env = dict(os.environ, PATH=d + os.pathsep + os.environ.get('PATH', '')); v = subprocess.run(['python3', '-c', 'import sys; print(sys.version.split()[0])'], env=env, capture_output=True, text=True).stdout.strip(); r = subprocess.run([os.path.join(d, 'python3'), 'test_jokbo.py'], env=env, capture_output=True, text=True); out = r.stdout.splitlines(); p = sum(l.startswith('PASS ') for l in out); f = [l[:120] for l in out if l.startswith('FAIL ')]; ok = r.returncode == 0 and sys.version_info[:2] == (3, 11) and v.startswith('3.11.') and p == 52 and not f; print('parent python', sys.version.split()[0], '| child python3 on PATH', v, '| test_jokbo.py exit', r.returncode, '| PASS', p, '| FAIL', f, '|', out[-1] if out else ''); sys.exit(0 if ok else 1)"
+      ],
+      [
+        "python3",
+        "-c",
+        "import subprocess, sys; a = subprocess.run(['git', 'diff', '--check', '56444b4', '--', 'README.md', 'plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/marketplace.json'], capture_output=True, text=True); print('git diff --check exit', a.returncode, a.stdout[:200]); sys.exit(a.returncode)"
+      ]
+    ],
+    "tests": [],
+    "gate": null,
+    "domain": "code",
+    "scope": [
+      ".claude-plugin/marketplace.json",
+      ".claude-plugin/plugin.json",
+      ".codex-plugin/plugin.json",
+      "README.md",
+      "plugin.json"
+    ]
+  },
+  "seq": 1,
+  "added": "2026-10-30T09:42:58+00:00",
+  "self-performed": {
+    "instead-of": "implementer",
+    "why": "release-preparation metadata and one documentation paragraph: five version strings and a timeless restatement of a change already made; no code, so a hired builder would only retype values the checks and verifier read",
+    "by": {
+      "agent": "claude-code claude-opus-5-5"
+    },
+    "at": "2026-10-30T09:42:58+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "checks-passed": {
+    "ran": [
+      {
+        "command": "python3.11 -c 'import json, os, sys; sys.path.insert(0, '\"'\"'.'\"'\"'); import jokbo; L = lambda p: json.load(open(p)); m = {p: L(p) for p in ('\"'\"'plugin.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'.codex-plugin/plugin.json'\"'\"')}; mk = L('\"'\"'.claude-plugin/marketplace.json'\"'\"'); ag = L('\"'\"'.agents/plugins/marketplace.json'\"'\"'); v = {p: d['\"'\"'version'\"'\"'] for p, d in m.items()}; v['\"'\"'marketplace.json metadata.version'\"'\"'] = mk['\"'\"'metadata'\"'\"']['\"'\"'version'\"'\"']; v['\"'\"'marketplace.json plugins[jokbo].version'\"'\"'] = [p['\"'\"'version'\"'\"'] for p in mk['\"'\"'plugins'\"'\"'] if p['\"'\"'name'\"'\"'] == '\"'\"'jokbo'\"'\"'][0]; py = {p: d.get('\"'\"'engines'\"'\"', {}).get('\"'\"'python'\"'\"') for p, d in m.items()}; agp = [p for p in ag['\"'\"'plugins'\"'\"'] if p['\"'\"'name'\"'\"'] == '\"'\"'jokbo'\"'\"'][0]; cx = m['\"'\"'plugin.json'\"'\"']['\"'\"'extensions'\"'\"']['\"'\"'com.openai'\"'\"']['\"'\"'hooks'\"'\"']; hk = lambda f: sorted({h['\"'\"'command'\"'\"'].split('\"'\"'/hooks/'\"'\"')[1].strip(chr(34)) for g in L(f)['\"'\"'hooks'\"'\"'].values() for x in g for h in x['\"'\"'hooks'\"'\"']}); ok = set(v.values()) == {'\"'\"'2.0.0'\"'\"'} and jokbo.version() == '\"'\"'2.0.0'\"'\"' and set(py.values()) == {'\"'\"'>=3.11'\"'\"'} and agp['\"'\"'source'\"'\"']['\"'\"'path'\"'\"'] == '\"'\"'./'\"'\"' and '\"'\"'version'\"'\"' not in agp and '\"'\"'version'\"'\"' not in ag and cx == '\"'\"'./hooks/codex.json'\"'\"' and os.path.isfile(cx) and m['\"'\"'.codex-plugin/plugin.json'\"'\"']['\"'\"'skills'\"'\"'] == '\"'\"'./skills/'\"'\"' and os.path.isfile('\"'\"'skills/read/SKILL.md'\"'\"') and hk('\"'\"'hooks/hooks.json'\"'\"') == hk('\"'\"'hooks/codex.json'\"'\"'); print('\"'\"'versions'\"'\"', v, '\"'\"'| jokbo.version() under'\"'\"', sys.version.split()[0], '\"'\"'='\"'\"', jokbo.version(), '\"'\"'| engines.python'\"'\"', sorted(set(py.values())), '\"'\"'| .agents marketplace jokbo ./ without version:'\"'\"', agp['\"'\"'source'\"'\"']['\"'\"'path'\"'\"'] == '\"'\"'./'\"'\"' and '\"'\"'version'\"'\"' not in agp, '\"'\"'| codex hooks'\"'\"', cx, '\"'\"'| same handlers both hosts:'\"'\"', hk('\"'\"'hooks/hooks.json'\"'\"') == hk('\"'\"'hooks/codex.json'\"'\"')); sys.exit(0 if ok else 1)'",
+        "exit": 0,
+        "tail": [
+          "versions {'plugin.json': '2.0.0', '.claude-plugin/plugin.json': '2.0.0', '.codex-plugin/plugin.json': '2.0.0', 'marketplace.json metadata.version': '2.0.0', 'marketplace.json plugins[jokbo].version': '2.0.0'} | jokbo.version() under 3.11.16 = 2.0.0 | engines.python ['>=3.11'] | .agents marketplace jokbo ./ without version: True | codex hooks ./hooks/codex.json | same handlers both hosts: True"
+        ],
+        "at": "2026-10-30T09:44:13+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import sys; s = open('\"'\"'README.md'\"'\"').read(); sec = '\"'\"' '\"'\"'.join(s[s.index('\"'\"'## Versioning'\"'\"'):s.index('\"'\"'### Release and adoption'\"'\"')].split()); stale = [w for w in ('\"'\"'Pending'\"'\"', '\"'\"'unreleased'\"'\"', '\"'\"'now declare'\"'\"', '\"'\"'no version is bumped'\"'\"', '\"'\"'next major'\"'\"') if w in sec]; need = [w for w in ('\"'\"'2.0.0'\"'\"', '\"'\"'from 3.9 to 3.11'\"'\"', '\"'\"'dropping Python 3.9 and 3.10'\"'\"', '\"'\"'dropping a supported Python or host version'\"'\"') if w not in sec]; print('\"'\"'Versioning: stale pending wording left:'\"'\"', stale, '\"'\"'| timeless v2 statement missing:'\"'\"', need); sys.exit(1 if stale or need else 0)'",
+        "exit": 0,
+        "tail": [
+          "Versioning: stale pending wording left: [] | timeless v2 statement missing: []"
+        ],
+        "at": "2026-10-30T09:44:13+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import re, subprocess, sys; g = lambda *a: subprocess.run(['\"'\"'git'\"'\"', *a], capture_output=True, text=True).stdout; files = sorted(g('\"'\"'diff'\"'\"', '\"'\"'--name-only'\"'\"', '\"'\"'56444b4'\"'\"', '\"'\"'--'\"'\"', '\"'\"'.'\"'\"', '\"'\"':(exclude).chongdae'\"'\"', '\"'\"':(exclude)reviews'\"'\"').split()); meta = ['\"'\"'.claude-plugin/marketplace.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'.codex-plugin/plugin.json'\"'\"', '\"'\"'plugin.json'\"'\"']; ch = lambda f: [l for l in g('\"'\"'diff'\"'\"', '\"'\"'-U0'\"'\"', '\"'\"'56444b4'\"'\"', '\"'\"'--'\"'\"', f).split(chr(10)) if l[:1] in ('\"'\"'+'\"'\"', '\"'\"'-'\"'\"') and not l.startswith(('\"'\"'+++'\"'\"', '\"'\"'---'\"'\"'))]; mv = {f: ch(f) for f in meta}; mok = all(len(ls) == (4 if '\"'\"'marketplace'\"'\"' in f else 2) and all(re.fullmatch(r'\"'\"'[-+] *\"version\": \"(1\\.8\\.1|2\\.0\\.0)\",?'\"'\"', l) for l in ls) for f, ls in mv.items()); rh = [(int(a), int(b) if b else 1) for a, b in re.findall(r'\"'\"'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@'\"'\"', g('\"'\"'diff'\"'\"', '\"'\"'-U0'\"'\"', '\"'\"'56444b4'\"'\"', '\"'\"'--'\"'\"', '\"'\"'README.md'\"'\"'), re.M)]; new = open('\"'\"'README.md'\"'\"').read().split(chr(10)); lo = new.index('\"'\"'## Versioning'\"'\"') + 1; hi = new.index('\"'\"'### Release and adoption'\"'\"') + 1; rok = bool(rh) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in rh); ok = files == sorted(meta + ['\"'\"'README.md'\"'\"']) and mok and rok; print('\"'\"'changed since 56444b4:'\"'\"', files, '\"'\"'| manifests change only version 1.8.1 -> 2.0.0:'\"'\"', mok, '\"'\"'| README hunks'\"'\"', rh, '\"'\"'inside Versioning'\"'\"', lo, '\"'\"'-'\"'\"', hi - 1, '\"'\"':'\"'\"', rok, '\"'\"'| any .py changed:'\"'\"', any(f.endswith('\"'\"'.py'\"'\"') for f in files)); sys.exit(0 if ok else 1)'",
+        "exit": 0,
+        "tail": [
+          "changed since 56444b4: ['.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'README.md', 'plugin.json'] | manifests change only version 1.8.1 -> 2.0.0: True | README hunks [(248, 2)] inside Versioning 237 - 250 : True | any .py changed: False"
+        ],
+        "at": "2026-10-30T09:44:13+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import os, re, sys; fence = lambda s: re.sub(r'\"'\"'(?ms)^\\`\\`\\`.*?^\\`\\`\\`'\"'\"', '\"'\"''\"'\"', s); slug = lambda h: re.sub(r'\"'\"'[^\\w\\- ]'\"'\"', '\"'\"''\"'\"', h.strip().lower()).replace('\"'\"' '\"'\"', '\"'\"'-'\"'\"'); heads = lambda f: {slug(m) for m in re.findall(r'\"'\"'^#+ +(.+?) *$'\"'\"', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('\"'\"'README.md'\"'\"', '\"'\"'AGENTS.md'\"'\"') for l in re.findall(r'\"'\"'\\]\\(([^)\\s]+)\\)'\"'\"', fence(open(f).read())) if not l.startswith(('\"'\"'http://'\"'\"', '\"'\"'https://'\"'\"', '\"'\"'mailto:'\"'\"'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('\"'\"'#'\"'\"')[0]) if l.partition('\"'\"'#'\"'\"')[0] else f; bad = [f + '\"'\"' -> '\"'\"' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('\"'\"'#'\"'\"')[2] and l.partition('\"'\"'#'\"'\"')[2] not in heads(tgt(f, l)))]; imp = open('\"'\"'CLAUDE.md'\"'\"').read() == '\"'\"'@AGENTS.md\\n'\"'\"'; print('\"'\"'relative links checked:'\"'\"', len(links), '\"'\"'| broken:'\"'\"', bad, '\"'\"'| CLAUDE.md is only the AGENTS.md import:'\"'\"', imp); sys.exit(0 if links and not bad and imp else 1)'",
+        "exit": 0,
+        "tail": [
+          "relative links checked: 19 | broken: [] | CLAUDE.md is only the AGENTS.md import: True"
+        ],
+        "at": "2026-10-30T09:44:13+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3.11 -c 'import subprocess, sys; h = subprocess.run([sys.executable, '\"'\"'jokbo.py'\"'\"', '\"'\"'--help'\"'\"'], capture_output=True, text=True); cmds = ['\"'\"'file'\"'\"', '\"'\"'since'\"'\"', '\"'\"'find'\"'\"', '\"'\"'index'\"'\"', '\"'\"'map'\"'\"', '\"'\"'note'\"'\"']; r = {c: subprocess.run([sys.executable, '\"'\"'jokbo.py'\"'\"', c, '\"'\"'--help'\"'\"'], capture_output=True, text=True) for c in cmds}; a = {c: '\"'\"'commands/%s.md'\"'\"' % c for c in ('\"'\"'file'\"'\"', '\"'\"'since'\"'\"', '\"'\"'find'\"'\"')}; ad = {c: ('\"'\"'jokbo.py\" %s '\"'\"' % c) in open(p).read() and '\"'\"'--target'\"'\"' in open(p).read() for c, p in a.items()}; ok = h.returncode == 0 and all(('\"'\"'{'\"'\"' + '\"'\"','\"'\"'.join(cmds) + '\"'\"'}'\"'\"') in h.stdout for _ in [0]) and all(x.returncode == 0 and '\"'\"'--target'\"'\"' in x.stdout for x in r.values()) and all(ad.values()); print('\"'\"'jokbo.py --help exit'\"'\"', h.returncode, '\"'\"'| <command> --help with --target:'\"'\"', {c: x.returncode == 0 and '\"'\"'--target'\"'\"' in x.stdout for c, x in r.items()}, '\"'\"'| /jokbo:* adapters call jokbo.py:'\"'\"', ad); sys.exit(0 if ok else 1)'",
+        "exit": 0,
+        "tail": [
+          "jokbo.py --help exit 0 | <command> --help with --target: {'file': True, 'since': True, 'find': True, 'index': True, 'map': True, 'note': True} | /jokbo:* adapters call jokbo.py: {'file': True, 'since': True, 'find': True}"
+        ],
+        "at": "2026-10-30T09:44:14+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3.11 -c 'import os, subprocess, sys, tempfile; d = tempfile.mkdtemp(); os.symlink(sys.executable, os.path.join(d, '\"'\"'python3'\"'\"')); env = dict(os.environ, PATH=d + os.pathsep + os.environ.get('\"'\"'PATH'\"'\"', '\"'\"''\"'\"')); v = subprocess.run(['\"'\"'python3'\"'\"', '\"'\"'-c'\"'\"', '\"'\"'import sys; print(sys.version.split()[0])'\"'\"'], env=env, capture_output=True, text=True).stdout.strip(); r = subprocess.run([os.path.join(d, '\"'\"'python3'\"'\"'), '\"'\"'test_jokbo.py'\"'\"'], env=env, capture_output=True, text=True); out = r.stdout.splitlines(); p = sum(l.startswith('\"'\"'PASS '\"'\"') for l in out); f = [l[:120] for l in out if l.startswith('\"'\"'FAIL '\"'\"')]; ok = r.returncode == 0 and sys.version_info[:2] == (3, 11) and v.startswith('\"'\"'3.11.'\"'\"') and p == 52 and not f; print('\"'\"'parent python'\"'\"', sys.version.split()[0], '\"'\"'| child python3 on PATH'\"'\"', v, '\"'\"'| test_jokbo.py exit'\"'\"', r.returncode, '\"'\"'| PASS'\"'\"', p, '\"'\"'| FAIL'\"'\"', f, '\"'\"'|'\"'\"', out[-1] if out else '\"'\"''\"'\"'); sys.exit(0 if ok else 1)'",
+        "exit": 0,
+        "tail": [
+          "parent python 3.11.16 | child python3 on PATH 3.11.16 | test_jokbo.py exit 0 | PASS 52 | FAIL [] | all passed"
+        ],
+        "at": "2026-10-30T09:44:32+00:00",
+        "chongdae": "chongdae 1.24.0"
+      },
+      {
+        "command": "python3 -c 'import subprocess, sys; a = subprocess.run(['\"'\"'git'\"'\"', '\"'\"'diff'\"'\"', '\"'\"'--check'\"'\"', '\"'\"'56444b4'\"'\"', '\"'\"'--'\"'\"', '\"'\"'README.md'\"'\"', '\"'\"'plugin.json'\"'\"', '\"'\"'.claude-plugin/plugin.json'\"'\"', '\"'\"'.codex-plugin/plugin.json'\"'\"', '\"'\"'.claude-plugin/marketplace.json'\"'\"'], capture_output=True, text=True); print('\"'\"'git diff --check exit'\"'\"', a.returncode, a.stdout[:200]); sys.exit(a.returncode)'",
+        "exit": 0,
+        "tail": [
+          "git diff --check exit 0"
+        ],
+        "at": "2026-10-30T09:44:32+00:00",
+        "chongdae": "chongdae 1.24.0"
+      }
+    ],
+    "at": "2026-10-30T09:44:33+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "review": {
+    "artifact-type": "dwitbuk/review@1",
+    "verdict": "accept",
+    "findings": [],
+    "worker": {
+      "host": "claude-code",
+      "model": "claude-opus-5-5",
+      "turns": 3,
+      "cost_usd": 0.1291678
+    }
+  },
+  "verdict-given": {
+    "at": "2026-10-30T09:44:43+00:00",
+    "chongdae": "chongdae 1.24.0"
+  },
+  "reviewed_tree": {
+    ".claude-plugin/marketplace.json": "9141d767b93a504385b3a776bb249272da6077c8",
+    ".claude-plugin/plugin.json": "c83be334677a7580b47b63c726fe9628c0064673",
+    ".codex-plugin/plugin.json": "341fe98dc47c63a767d51656ce81d542a81396a5",
+    "README.md": "0ead69dbe09ee23ce098d165bdf689f081b309d4",
+    "plugin.json": "faa96312f5b25c3ff9ecf92e965d8adbb3ca30ee"
+  },
+  "verified_by": {
+    "provider": "command",
+    "argv": [
+      "python3",
+      "{plugin:dwitbuk}/eyes_worker.py",
+      "--request",
+      "{request}",
+      "--response",
+      "{response}",
+      "--host",
+      "claude"
+    ],
+    "host": "claude-code",
+    "model": "claude-opus-5-5",
+    "turns": 3,
+    "cost_usd": 0.1291678,
+    "versions": {
+      "used": {
+        "dwitbuk": "1.16.0",
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [],
+      "commands-run": 0,
+      "commands-failed": 0
+    }
+  },
+  "checks": [
+    [
+      "python3.11",
+      "-c",
+      "import json, os, sys; sys.path.insert(0, '.'); import jokbo; L = lambda p: json.load(open(p)); m = {p: L(p) for p in ('plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json')}; mk = L('.claude-plugin/marketplace.json'); ag = L('.agents/plugins/marketplace.json'); v = {p: d['version'] for p, d in m.items()}; v['marketplace.json metadata.version'] = mk['metadata']['version']; v['marketplace.json plugins[jokbo].version'] = [p['version'] for p in mk['plugins'] if p['name'] == 'jokbo'][0]; py = {p: d.get('engines', {}).get('python') for p, d in m.items()}; agp = [p for p in ag['plugins'] if p['name'] == 'jokbo'][0]; cx = m['plugin.json']['extensions']['com.openai']['hooks']; hk = lambda f: sorted({h['command'].split('/hooks/')[1].strip(chr(34)) for g in L(f)['hooks'].values() for x in g for h in x['hooks']}); ok = set(v.values()) == {'2.0.0'} and jokbo.version() == '2.0.0' and set(py.values()) == {'>=3.11'} and agp['source']['path'] == './' and 'version' not in agp and 'version' not in ag and cx == './hooks/codex.json' and os.path.isfile(cx) and m['.codex-plugin/plugin.json']['skills'] == './skills/' and os.path.isfile('skills/read/SKILL.md') and hk('hooks/hooks.json') == hk('hooks/codex.json'); print('versions', v, '| jokbo.version() under', sys.version.split()[0], '=', jokbo.version(), '| engines.python', sorted(set(py.values())), '| .agents marketplace jokbo ./ without version:', agp['source']['path'] == './' and 'version' not in agp, '| codex hooks', cx, '| same handlers both hosts:', hk('hooks/hooks.json') == hk('hooks/codex.json')); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import sys; s = open('README.md').read(); sec = ' '.join(s[s.index('## Versioning'):s.index('### Release and adoption')].split()); stale = [w for w in ('Pending', 'unreleased', 'now declare', 'no version is bumped', 'next major') if w in sec]; need = [w for w in ('2.0.0', 'from 3.9 to 3.11', 'dropping Python 3.9 and 3.10', 'dropping a supported Python or host version') if w not in sec]; print('Versioning: stale pending wording left:', stale, '| timeless v2 statement missing:', need); sys.exit(1 if stale or need else 0)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import re, subprocess, sys; g = lambda *a: subprocess.run(['git', *a], capture_output=True, text=True).stdout; files = sorted(g('diff', '--name-only', '56444b4', '--', '.', ':(exclude).chongdae', ':(exclude)reviews').split()); meta = ['.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'plugin.json']; ch = lambda f: [l for l in g('diff', '-U0', '56444b4', '--', f).split(chr(10)) if l[:1] in ('+', '-') and not l.startswith(('+++', '---'))]; mv = {f: ch(f) for f in meta}; mok = all(len(ls) == (4 if 'marketplace' in f else 2) and all(re.fullmatch(r'[-+] *\"version\": \"(1\\.8\\.1|2\\.0\\.0)\",?', l) for l in ls) for f, ls in mv.items()); rh = [(int(a), int(b) if b else 1) for a, b in re.findall(r'^@@ -\\S+ \\+(\\d+)(?:,(\\d+))? @@', g('diff', '-U0', '56444b4', '--', 'README.md'), re.M)]; new = open('README.md').read().split(chr(10)); lo = new.index('## Versioning') + 1; hi = new.index('### Release and adoption') + 1; rok = bool(rh) and all(lo <= a and a + max(n, 1) - 1 < hi for a, n in rh); ok = files == sorted(meta + ['README.md']) and mok and rok; print('changed since 56444b4:', files, '| manifests change only version 1.8.1 -> 2.0.0:', mok, '| README hunks', rh, 'inside Versioning', lo, '-', hi - 1, ':', rok, '| any .py changed:', any(f.endswith('.py') for f in files)); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import os, re, sys; fence = lambda s: re.sub(r'(?ms)^\\`\\`\\`.*?^\\`\\`\\`', '', s); slug = lambda h: re.sub(r'[^\\w\\- ]', '', h.strip().lower()).replace(' ', '-'); heads = lambda f: {slug(m) for m in re.findall(r'^#+ +(.+?) *$', fence(open(f).read()), re.M)}; links = [(f, l) for f in ('README.md', 'AGENTS.md') for l in re.findall(r'\\]\\(([^)\\s]+)\\)', fence(open(f).read())) if not l.startswith(('http://', 'https://', 'mailto:'))]; tgt = lambda f, l: os.path.join(os.path.dirname(f), l.partition('#')[0]) if l.partition('#')[0] else f; bad = [f + ' -> ' + l for f, l in links if not os.path.exists(tgt(f, l)) or (l.partition('#')[2] and l.partition('#')[2] not in heads(tgt(f, l)))]; imp = open('CLAUDE.md').read() == '@AGENTS.md\\n'; print('relative links checked:', len(links), '| broken:', bad, '| CLAUDE.md is only the AGENTS.md import:', imp); sys.exit(0 if links and not bad and imp else 1)"
+    ],
+    [
+      "python3.11",
+      "-c",
+      "import subprocess, sys; h = subprocess.run([sys.executable, 'jokbo.py', '--help'], capture_output=True, text=True); cmds = ['file', 'since', 'find', 'index', 'map', 'note']; r = {c: subprocess.run([sys.executable, 'jokbo.py', c, '--help'], capture_output=True, text=True) for c in cmds}; a = {c: 'commands/%s.md' % c for c in ('file', 'since', 'find')}; ad = {c: ('jokbo.py\" %s ' % c) in open(p).read() and '--target' in open(p).read() for c, p in a.items()}; ok = h.returncode == 0 and all(('{' + ','.join(cmds) + '}') in h.stdout for _ in [0]) and all(x.returncode == 0 and '--target' in x.stdout for x in r.values()) and all(ad.values()); print('jokbo.py --help exit', h.returncode, '| <command> --help with --target:', {c: x.returncode == 0 and '--target' in x.stdout for c, x in r.items()}, '| /jokbo:* adapters call jokbo.py:', ad); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3.11",
+      "-c",
+      "import os, subprocess, sys, tempfile; d = tempfile.mkdtemp(); os.symlink(sys.executable, os.path.join(d, 'python3')); env = dict(os.environ, PATH=d + os.pathsep + os.environ.get('PATH', '')); v = subprocess.run(['python3', '-c', 'import sys; print(sys.version.split()[0])'], env=env, capture_output=True, text=True).stdout.strip(); r = subprocess.run([os.path.join(d, 'python3'), 'test_jokbo.py'], env=env, capture_output=True, text=True); out = r.stdout.splitlines(); p = sum(l.startswith('PASS ') for l in out); f = [l[:120] for l in out if l.startswith('FAIL ')]; ok = r.returncode == 0 and sys.version_info[:2] == (3, 11) and v.startswith('3.11.') and p == 52 and not f; print('parent python', sys.version.split()[0], '| child python3 on PATH', v, '| test_jokbo.py exit', r.returncode, '| PASS', p, '| FAIL', f, '|', out[-1] if out else ''); sys.exit(0 if ok else 1)"
+    ],
+    [
+      "python3",
+      "-c",
+      "import subprocess, sys; a = subprocess.run(['git', 'diff', '--check', '56444b4', '--', 'README.md', 'plugin.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/marketplace.json'], capture_output=True, text=True); print('git diff --check exit', a.returncode, a.stdout[:200]); sys.exit(a.returncode)"
+    ]
+  ],
+  "touched": [
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/plugin.json",
+    ".codex-plugin/plugin.json",
+    "README.md",
+    "plugin.json"
+  ],
+  "performed_by": {
+    "provider": "session",
+    "host": "claude-code",
+    "agent": "claude-code_2-1-314_agent",
+    "effort": "xhigh",
+    "model": "claude-opus-5-5",
+    "versions": {
+      "used": {
+        "chongdae": "1.24.0"
+      }
+    },
+    "trace": {
+      "changed": [
+        "edit ./plugin.json",
+        "edit ./.claude-plugin/plugin.json",
+        "edit ./.codex-plugin/plugin.json",
+        "edit ./.claude-plugin/marketplace.json",
+        "edit ./README.md"
+      ],
+      "commands-run": 2,
+      "command-lines": "kept in the local session transcript, not in the record",
+      "window-from": "2026-10-30T09:42:58+00:00"
+    }
+  },
+  "done": {
+    "at": "2026-10-30T09:44:44+00:00",
+    "chongdae": "chongdae 1.24.0"
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "artifact-type": "dwitbuk/review@1",
+  "id": "review-20261030-171225-0c89",
+  "since": "e9a174a28c6b1baca57c8a8e8d97dfa077b3626b",
+  "head": "acff247cfd02a9605c137e404eba23c1bf918f17",
+  "findings": [
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['working toward a stated goal or carrying out a plan']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['reviewing, disputing or testing a change']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unreviewed",
+      "where": "hunsu.json resolutions['asking what happened, what is open or what changed']",
+      "text": "applied from the judge's proposal, marked reviewed: false — `hunsu policy` shows the conflict a person judges",
+      "standing": true,
+      "reporter": "hunsu",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "stage-finding",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "surprise @ : The README does not explain that the target directory is resolved to an enclosing repository. — “when installed, use `python3 \"/path/to/plugin/jokbo.py\" <command> --target \"/path/to/project\"` with the real paths and command.”",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "stage-finding",
+      "where": "run-20261030-063525-2d81/environment (newbie, after)",
+      "text": "unclear @ : Following this instruction did not provide a way to verify the environment adoption requested by the goal. — “reconcile the consuming project's declared environment and lock if managed, and start a new host session to apply the installation.”",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-080105-b347/containment",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): a machine-local setting in hunsu's ignored overlay file, written before any worker is called; a hired builder would itself produce the worker response this setting must contain",
+      "layer": "observation"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-080105-b347/prior-adoption",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): adoption of owner-authorized earlier work: the edits exist already, so the task reviews them against source and commits them unchanged; a hired builder would have nothing to build, and building would replace the owner's text",
+      "layer": "observation"
+    },
+    {
+      "kind": "session-judged",
+      "where": "run-20261030-080105-b347/prior-adoption",
+      "text": "adopt .claude-plugin/plugin.json, AGENTS.md, CLAUDE.md, README.md, plugin.json decided by the session (claude-code claude-opus-5-5), not a person: Earlier owner-authorized work, present in the tree before run-20261030-063525-2d81 and captured by the root's read-only baseline (../.umbrella/selfhost-baseline/jokbo.json: head 5e0fb48, diff sha256 ad3e9915...). Adopted so this task's review, verifier and commit cover exactly these edits. This session neither wrote nor changed them; the adoption is the session's judgment under the owner's instruction to review and adopt them, not a claim of authorship.",
+      "layer": "observation"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-080105-b347/record-hygiene",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): an index-only removal and a one-line ignore rule, whose risk is touching a live lock inode; the session does it with checks that pin the inode, rather than hand a worker a git index change",
+      "layer": "observation"
+    },
+    {
+      "kind": "self-performed",
+      "where": "run-20261030-080105-b347/version-policy",
+      "text": "the session did this itself instead of the lock's implementer (decided by the session (claude-code claude-opus-5-5)): a two-sentence documentation change to the Versioning section, written as the owner specified it; its checks and the verifier read it, and hiring a builder for it costs more than the change",
+      "layer": "observation"
+    },
+    {
+      "kind": "verifier-non-claim",
+      "where": "run-20261030-080105-b347",
+      "text": "prior-adoption: (verifier) accepted without reading the tree: the eyes opened no file and ran no command — the verdict rests on the packet alone",
+      "layer": "observation"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "no check decides this task  [task provenance]",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "provenance: done on the session's word by name (`run provenance`), with nothing of its own in the tree and no `did`  [task provenance]",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "no session transcript here: what the session did for this task is its word alone  [task provenance]",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "non-claim",
+      "where": "run-20261030-063525-2d81",
+      "text": "dropped, not done: Mis-specified by this session. Its fourth check sends dwitbuk's eyes_worker a sample verify request without 'target' (verify_packet reads request['target']), so that check fails on any lock. chongdae attaches checks only to a task that has none, so the corrected check goes on a new task, 'environment', which adopts this task's hunsu.json and hunsu.lock.json edits: the work is done there, not abandoned. Correction of signatures: this task's self-performed reason and task 'provenance' were signed 'codex gpt-6-astra' (session 01a180b0) because this Claude Code session (claude-opus-5-5, session 8189d689) inherited its Codex parent's CODEX_THREAD_ID. That parent did not perform them. From here the session calls the engines without the inherited Codex markers.  [task env]",
+      "layer": "objection",
+      "first-seen": "review-20261030-155017-bab4"
+    },
+    {
+      "kind": "unchanged",
+      "layer": "observation",
+      "where": "1 earlier review(s)",
+      "seen-in": [
+        "review-20261030-155017-bab4"
+      ],
+      "text": "4 observation(s) written in full in 1 earlier review(s) and unchanged since (self-performed 2, session-judged 2)"
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": "AGENTS.md, CLAUDE.md, README.md, plugin.json",
+      "text": "4 file(s) changed since 76a1530; no completed run recorded touching them",
+      "carries": [
+        "outside-run",
+        "AGENTS.md, CLAUDE.md, README.md, plugin.json",
+        "changed ; no completed run recorded touching them"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-155017-bab4/9",
+      "disposition": {
+        "as": "accepted",
+        "delegated": "No person read this finding. In this session the owner instructed review and adoption of these owner-authorized prior edits; run-20261030-080105-b347 task prior-adoption reviewed them against source and committed them unchanged in 4ad94e7, equal to the root's baseline. The charge was true when raised (no run claimed them) and is answered by that adoption, not by authorship.",
+        "by": null,
+        "finding_text": "4 file(s) changed since 76a1530; no completed run recorded touching them",
+        "where": "AGENTS.md, CLAUDE.md, README.md, plugin.json"
+      }
+    },
+    {
+      "kind": "undisposed",
+      "layer": "objection",
+      "where": ".claude-plugin/plugin.json",
+      "text": "1 file(s) changed since 76a1530; no completed run recorded touching them",
+      "carries": [
+        "outside-run",
+        ".claude-plugin/plugin.json",
+        "changed ; no completed run recorded touching them"
+      ],
+      "first-seen": "review-20261030-155017-bab4",
+      "raised-in": "review-20261030-155017-bab4/10",
+      "disposition": {
+        "as": "accepted",
+        "delegated": "No person read this finding. In this session the owner instructed review and adoption of these owner-authorized prior edits (the Python >=3.11 floor in .claude-plugin/plugin.json among them); run-20261030-080105-b347 task prior-adoption reviewed them against source and committed them unchanged in 4ad94e7, equal to the root's baseline. The charge was true when raised and is answered by that adoption, not by authorship.",
+        "by": null,
+        "finding_text": "1 file(s) changed since 76a1530; no completed run recorded touching them",
+        "where": ".claude-plugin/plugin.json"
+      }
+    }
+  ]
+}
