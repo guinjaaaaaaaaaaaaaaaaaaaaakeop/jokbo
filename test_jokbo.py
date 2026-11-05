@@ -12,7 +12,8 @@ import time
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+PLUGIN = os.path.join(HERE, "plugin")
+sys.path.insert(0, PLUGIN)
 import jokbo  # noqa: E402
 
 
@@ -34,7 +35,7 @@ def run(*argv):
 
 
 def hook(name, payload, **env):
-    done = subprocess.run([sys.executable, os.path.join(HERE, "hooks", name)], input=json.dumps(payload), capture_output=True, text=True,
+    done = subprocess.run([sys.executable, os.path.join(PLUGIN, "hooks", name)], input=json.dumps(payload), capture_output=True, text=True,
                           encoding="utf-8", env=dict({k: v for k, v in os.environ.items() if k != "AGENT_WORKER"}, **env))
     return done.returncode, done.stdout
 
@@ -983,7 +984,7 @@ print("done", flush=True)
     for same_session in (False, True):
         with Repo() as r:
             def start(mode, sid, call=""):
-                return subprocess.Popen([sys.executable, "-c", worker, HERE, mode, r.dir, sid, call],
+                return subprocess.Popen([sys.executable, "-c", worker, PLUGIN, mode, r.dir, sid, call],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             a = start("held", "A")
             jobs = [a]

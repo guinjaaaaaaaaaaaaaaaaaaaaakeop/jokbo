@@ -1,33 +1,33 @@
 {
  "artifact": "selfhost/public-records@1",
- "what": "The jokbo 2.0.0 candidate exported for publication as one commit on origin/main. Source, documentation, environment and metadata files are the frozen candidate's exact bytes; .chongdae/ and reviews/ hold the reviewed final closed self-hosting records. The private self-hosting history they came from is not an ancestor of this commit, and this commit does not stand in for it.",
+ "what": "The jokbo 2.1.0 source exported for publication as one commit on the public main. Runtime, payload, catalog, documentation, test and metadata files are the approved private source commit's exact bytes; the root environment and ignore files (hunsu.json, hunsu.lock.json, hunsu-judgments.json, .gitignore) are preserved byte-for-byte from the base, the public 2.0.0 export, and are not the source's current environment; .chongdae/ and reviews/ hold the self-hosting records published with 2.0.0, carried unchanged. The private self-hosting history the source came from is not an ancestor of this commit, and this commit does not stand in for it.",
  "base": {
-  "commit": "5e0fb484638372c39af96e2b18361b4bc8e3b1b5",
-  "is": "origin/main (1.8.1)"
+  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "tree": "9d49e1721625a67fced927b28b3d04662dc8c272",
+  "is": "the public main (2.0.0)"
+ },
+ "previous_export": {
+  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "manifest_git_blob": "2e34b6cff20b744cce5b1395b8fe50e9c687c82f",
+  "is": "the 2.0.0 export's manifest, kept in this repository's history"
  },
  "source": {
-  "commit": "6a8edfe353c5a91dc01533a56910f22edcc0fdb0",
-  "tree": "c0dbbc51bebaf315cd5932120e7656d881755aa5",
-  "is": "the private candidate commit; not published, not an ancestor",
+  "commit": "9dae6fcc2d0d9374462b454e55dee7f290a2c26d",
+  "tree": "29bb3ad09a4a7faf4e00278b007f8384bc7e4021",
+  "is": "the approved private source commit; not published, not an ancestor",
   "rule": "each file below has the same git blob and mode as in the source commit",
   "files": [
    {
     "path": ".agents/plugins/marketplace.json",
     "mode": "100644",
-    "git_blob": "79c12688f81e78c838f30ce1130f200919c59065",
-    "sha256": "db7fa12ef8f53cd91ec1e7af1c9ab4753946f5d931a987016e5c98c05a0f0bfb"
+    "git_blob": "ead771011fc8ecfba999e8cae8c1e9e16dcd9ead",
+    "sha256": "8b9b251a28b2b8af25901727afdd46df1365de7305297200d9999622191b6037"
    },
    {
     "path": ".claude-plugin/marketplace.json",
     "mode": "100644",
-    "git_blob": "fa69a2c95571e115f14f8476773229a4f2904635",
-    "sha256": "b2bc1c3683015a57ef158febe0e5724a845efff0f4def566ad0e4cf7f6de9684"
-   },
-   {
-    "path": ".claude-plugin/plugin.json",
-    "mode": "100644",
-    "git_blob": "f99212882a61a5096e53b6e60f147a4b52cb39d7",
-    "sha256": "03b2a6e98f59c99cb71087b58b44daee40dcfa4711356735c6fdf099ddf62f23"
+    "git_blob": "5c82d4e7bc6d84aa01fd19cfc81a595bb44efb4a",
+    "sha256": "e80deede2221f2018cba840cdf9a3090ce589b995005b5e09ed1ac5c3decdece"
    },
    {
     "path": ".claude/settings.json",
@@ -36,22 +36,10 @@
     "sha256": "f1879a2780c60b07730710f049b8a1a53ef0bb8ef0f48f8facaea43f90674e25"
    },
    {
-    "path": ".codex-plugin/plugin.json",
-    "mode": "100644",
-    "git_blob": "24b97e654552ee2804a7be24040c2f0015947e8a",
-    "sha256": "18c8a42fedc4283e412eb28a3bef1b0959152becd8c3d994aa173dced16599a4"
-   },
-   {
-    "path": ".gitignore",
-    "mode": "100644",
-    "git_blob": "ed8948371d794d80c48b58e30dbabc8783e3b669",
-    "sha256": "0fcf670c97df8c6e25d2a40a10a87fa4ee2e5b920145fcea86657da368ed6a8c"
-   },
-   {
     "path": "AGENTS.md",
     "mode": "100644",
-    "git_blob": "22be42d9870a593b94deeeac4d4a0f9549274dce",
-    "sha256": "d1babdf4b0a51bbd68a0cbfb573905fedbdc019840763453b8da49efcf2c99fc"
+    "git_blob": "83d2f48d6af22e271b4059d5d5e25523301f48f3",
+    "sha256": "752055179fd6c4e2504414091f358b377b5b6e2967c37ca9e675a9ce741b53ee"
    },
    {
     "path": "CLAUDE.md",
@@ -68,74 +56,147 @@
    {
     "path": "README.md",
     "mode": "100644",
-    "git_blob": "ffe2747ad54ea309dfed41475915f4a407371513",
-    "sha256": "658000639f5fd1e4857e4400c829def0f84de82fd4780a0bff6da1a2e8006017"
+    "git_blob": "1bb69daccc446a04d548eade1bec744b048a045b",
+    "sha256": "397b8a7a444e5f804fe3de2689eebfb09e3b55770e4c8c90d03f9d913b9816be"
    },
    {
-    "path": "commands/file.md",
+    "path": "jokbo.py",
+    "mode": "100644",
+    "git_blob": "9c0a3f41a92944c7d7aa51a523e5ee392792a560",
+    "sha256": "b4aa3e70a736a8104496b9e5d8db9bb3e22147c0ed656b2ccc2a875b6d158492"
+   },
+   {
+    "path": "plugin/.claude-plugin/plugin.json",
+    "mode": "100644",
+    "git_blob": "067ca0ca1635e091b332b0a5d76f2ba87b9cd8ff",
+    "sha256": "9fb3a37edf6a5afb4966b6c5d566559fe8db9648973bd8ba41edb9350194fb13"
+   },
+   {
+    "path": "plugin/.codex-plugin/plugin.json",
+    "mode": "100644",
+    "git_blob": "545efc7b873a0e7bd3c91df6d25739057b44e03c",
+    "sha256": "91b4655fc23f0649d2f4b45db70c494c172b8d5b9f2e6686ef7722986959a283"
+   },
+   {
+    "path": "plugin/LICENSE",
+    "mode": "100644",
+    "git_blob": "6d464339038b2db249c491d45c71dee4436c98fd",
+    "sha256": "5d5e22555ed88e3e5e38cc09ab04ae61903f35f0c9e9ac606d2a44214cca3bd0"
+   },
+   {
+    "path": "plugin/README.md",
+    "mode": "100644",
+    "git_blob": "79294efd992208c24eb0e081af245289c49b6bb7",
+    "sha256": "cd892093dcffe5542e5075affa14ac7071a32ed3b492e479e8707908c872ff4c"
+   },
+   {
+    "path": "plugin/commands/file.md",
     "mode": "100644",
     "git_blob": "78be7e1f064c7084e50e83675f1b26ddf79e99ee",
     "sha256": "4602056be5cb842e3d8fc27b7ba744d73b3d9ab75b15218a43b87171655c6a76"
    },
    {
-    "path": "commands/find.md",
+    "path": "plugin/commands/find.md",
     "mode": "100644",
     "git_blob": "fd142d2844e4222bb8e27c8fe3bd23e2f5015418",
     "sha256": "88a24125c3b7a1af10c7aa79b4ff24234e5ebcfcff9aca94568f24360e304db6"
    },
    {
-    "path": "commands/since.md",
+    "path": "plugin/commands/since.md",
     "mode": "100644",
     "git_blob": "6e66b95cf83ee6d8511818de6e6d01c67211f8a0",
     "sha256": "d9003318ad52c2cd3400aa2dc069e1d884484eae3b8aaf6d876a1b085f9d493a"
    },
    {
-    "path": "hooks/_common.py",
+    "path": "plugin/hooks/_common.py",
     "mode": "100644",
     "git_blob": "d526b003c95315e25217a90be339dceb57e2ba70",
     "sha256": "dc08fae4985e98185fc1035d38abc7bf9473157e7e246a7c38bb7f48cb4fb61e"
    },
    {
-    "path": "hooks/codex.json",
+    "path": "plugin/hooks/codex.json",
     "mode": "100644",
     "git_blob": "c14021625e0b841a23b9b569e03e1a4c390540d8",
     "sha256": "f60f1916d2fb878f7ad1fca454e2aee25389b24aad19137c256975e298fd2183"
    },
    {
-    "path": "hooks/hooks.json",
+    "path": "plugin/hooks/hooks.json",
     "mode": "100644",
     "git_blob": "e6bbd3f5cd49f0c85699bdb5114107903329b5ef",
     "sha256": "c06534862b4b70f61f53511a9968ec1f1ae5cce1bd3092dcc0b1e19837a2cfb3"
    },
    {
-    "path": "hooks/post_tool.py",
+    "path": "plugin/hooks/post_tool.py",
     "mode": "100644",
     "git_blob": "77b01772a3a5f7069a1aab54d928c1959d2c5ac2",
     "sha256": "4886da08dbbd81b9d04ce38cb1d83d2f6a2f8c271757082a1edab78c9784d63a"
    },
    {
-    "path": "hooks/pre_tool.py",
+    "path": "plugin/hooks/pre_tool.py",
     "mode": "100644",
     "git_blob": "9781a0e0d9a99c5d84e25bd8c24d71b4a3316e3b",
     "sha256": "f78477ee5ac5455d887f2939a25f30d06bdb67b67d4a6b3c90eed407c726aea8"
    },
    {
-    "path": "hooks/prompt.py",
+    "path": "plugin/hooks/prompt.py",
     "mode": "100644",
     "git_blob": "fac1c4ba33fa19c848493c2f9acffee641ec17ec",
     "sha256": "4e4c419a190b7acdafa713d6ddceaa2438c89c68758e085daa4a1ea18644ad66"
    },
    {
-    "path": "hooks/session_start.py",
+    "path": "plugin/hooks/session_start.py",
     "mode": "100644",
     "git_blob": "648758ce0b807611612aed80b2553f11d24ac34a",
     "sha256": "67d8cb82dc5d1c9e94a687dcfb613d931140dec112ba63a6cca85a3fd28e18fb"
    },
    {
-    "path": "hooks/stop.py",
+    "path": "plugin/hooks/stop.py",
     "mode": "100644",
     "git_blob": "0e45792459cfd2dc9bae61887aeb4b8a74366a29",
     "sha256": "de86ce1d0a311ddb09eea22640131fe62df366350372a47737369677d23160e8"
+   },
+   {
+    "path": "plugin/jokbo.py",
+    "mode": "100644",
+    "git_blob": "a211c38e1bba358d01c3082426b5cb917de91a3a",
+    "sha256": "c96fdd08ae0c53a7bcb8a8aa21407d2fb2a1198c1cc6712f389f963deab60f55"
+   },
+   {
+    "path": "plugin/plugin.json",
+    "mode": "100644",
+    "git_blob": "c40692711a09b130443dee6bc1b0d5bfcfc68933",
+    "sha256": "966853f8e0e4587b7cceef7d7fbf3963a4308341cf900fc748dba557ab4b6a3c"
+   },
+   {
+    "path": "plugin/skills/read/SKILL.md",
+    "mode": "100644",
+    "git_blob": "fd02e35eb8517bae3f81ed9b0d5935fc34bebda9",
+    "sha256": "d24048fadeecf6eb63cee338366cadfff22e43452361d4b6a1f4565032db80b6"
+   },
+   {
+    "path": "test_jokbo.py",
+    "mode": "100644",
+    "git_blob": "3c4b61ccedb5ab1a499685089966773d0d8380a4",
+    "sha256": "92694409a40193d44bbcb1ba7884de98e31b06768271a13d005c9fc5170311dd"
+   },
+   {
+    "path": "test_packaging.py",
+    "mode": "100644",
+    "git_blob": "fd9467b2baefd66f10e6a454f59ce84e94b4b5e5",
+    "sha256": "d670ef4d1f56f9dcec834289633b4e9e5133a44fb4e36755dffca84c207d3c9e"
+   }
+  ]
+ },
+ "preserved_from_base": {
+  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "rule": "each file below has the same git blob and mode as in the base commit",
+  "why": "the source's current environment records, from its later private environment adoption, are not published with this export; these files are the environment as published with 2.0.0",
+  "files": [
+   {
+    "path": ".gitignore",
+    "mode": "100644",
+    "git_blob": "ed8948371d794d80c48b58e30dbabc8783e3b669",
+    "sha256": "0fcf670c97df8c6e25d2a40a10a87fa4ee2e5b920145fcea86657da368ed6a8c"
    },
    {
     "path": "hunsu-judgments.json",
@@ -154,31 +215,31 @@
     "mode": "100644",
     "git_blob": "59271fe0e3e67e721af60254cb2087f51036de3a",
     "sha256": "65e81f34c95469477f2e43384ae93176c66db132333aee555ab2d18da9b030ce"
-   },
-   {
-    "path": "jokbo.py",
-    "mode": "100644",
-    "git_blob": "522b4f74bc2a8e747cf98f30c09555ac02424d13",
-    "sha256": "039b14b05d73c92e45428cd1276032789d18ee7a65aa2816acbf6847dd3fbc2a"
-   },
-   {
-    "path": "plugin.json",
-    "mode": "100644",
-    "git_blob": "f7ef8c83f689d1d4fe0ed703bedcb66e69389a39",
-    "sha256": "dc32da1ac9328024530cbcc4bec87a1281dcdd710f4574d554e8a8be2e85cc9e"
-   },
-   {
-    "path": "skills/read/SKILL.md",
-    "mode": "100644",
-    "git_blob": "fd02e35eb8517bae3f81ed9b0d5935fc34bebda9",
-    "sha256": "d24048fadeecf6eb63cee338366cadfff22e43452361d4b6a1f4565032db80b6"
-   },
-   {
-    "path": "test_jokbo.py",
-    "mode": "100644",
-    "git_blob": "3787843da26a1c153f5d0b95c51dc85527e7bb3b",
-    "sha256": "53af51e20d924d708bd054edd00a8adc82b437a7b4b2ce03b3d820591bb248d1"
    }
+  ]
+ },
+ "payload": {
+  "directory": "plugin/",
+  "is": "what both root catalogs select (./plugin) and a host installs; it holds no development declaration, test, record or local setting",
+  "files": [
+   "plugin/.claude-plugin/plugin.json",
+   "plugin/.codex-plugin/plugin.json",
+   "plugin/LICENSE",
+   "plugin/README.md",
+   "plugin/commands/file.md",
+   "plugin/commands/find.md",
+   "plugin/commands/since.md",
+   "plugin/hooks/_common.py",
+   "plugin/hooks/codex.json",
+   "plugin/hooks/hooks.json",
+   "plugin/hooks/post_tool.py",
+   "plugin/hooks/pre_tool.py",
+   "plugin/hooks/prompt.py",
+   "plugin/hooks/session_start.py",
+   "plugin/hooks/stop.py",
+   "plugin/jokbo.py",
+   "plugin/plugin.json",
+   "plugin/skills/read/SKILL.md"
   ]
  },
  "records": {
@@ -452,15 +513,23 @@
    "generator": "5e5aa708da4897429401afb899eefb53e21a154c801553a5863b9925dee18e8b"
   }
  },
- "review": {
-  "projection": "read by a fresh declared verifier in the private self-hosting session (run-20261030-103045-5d9e, task public-export); its verdict and record stay outside this payload"
+ "records_carried": {
+  "from": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "count": 32,
+  "rule": "every record path has the same git blob and mode as in the base commit; the derivation table above is the 2.0.0 export's, unchanged; no record written after the 2.0.0 export is shipped"
  },
- "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are the environment as locked from released 1.x engines (the lock pins jokbo 1.8.1): the released generation managing this next-generation source, which was not installed",
+ "review": {
+  "source": "the source changes since 2.0.0 were read by declared verifiers in private runs run-20261105-083249-498a, run-20261105-090907-634c and run-20261105-092949-a61c and by independent reviewers outside this repository; their verdicts and records stay outside this payload",
+  "projection": "checked in the private run run-20261105-095916-4141, task public-projection-2 (it corrects an unpublished first draft that carried the source's current environment records); its record stays outside this payload"
+ },
+ "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are preserved unchanged from the 2.0.0 export: the environment as locked then from released 1.x engines (the lock pins jokbo 1.8.1). They are not the environment this 2.1.0 source was developed or checked in; that environment is not published with this export",
  "not_claimed": [
-  "a release: no tag, push or install was made with this export",
-  "a person's review of the three resolutions marked reviewed: false in hunsu.json; no person has read them",
-  "disposal of the objections and non-claims the shipped reviews still hold open",
-  "a Codex host environment check: released hunsu 1.15.1 counts Codex's .codex-marketplace-install.json, so its Codex-view check fails for hunsu, mangsang and jokbo",
-  "runtime privacy fixes in the engines; they are a separate release gate"
+  "a GitHub release or tag: none is made with this export",
+  "an installation, a plugin cache update, or a consumer's pin, lock or adoption",
+  "a person's review of the 3 resolutions marked reviewed: false in hunsu.json; no person has read them",
+  "disposal of the objections and non-claims the shipped reviews hold open, or of the private reviews written after 2.0.0",
+  "a live installation from ./plugin on Claude Code or Codex: the payload was checked statically, by Claude's manifest validator and by isolated fixtures",
+  "the private self-hosting records written after the 2.0.0 export: they are not shipped",
+  "that the root environment files describe the environment this source was developed in: they are the 2.0.0 export's, preserved"
  ]
 }
