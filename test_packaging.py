@@ -9,7 +9,10 @@ fixtures live in fresh temporary directories outside any git work tree.
 Test names carry the contract item they decide: C1 payload, C2 root layout,
 C3 root shim, C4 manifests and catalogs, C5 standalone copy, C6 real fixture
 workflow from the copy, C7 {plugin:NAME} following a linked repository's
-catalog in a real declared read.
+catalog in a real declared read, C8 a link or directory marketplace naming a
+folder of checkouts, C9 {plugin:NAME} resolved by the family's vendored
+host-aware resolver (plugin/pluginroot.py) for the selected host, with its
+version note said where a declared read reports.
 """
 
 import hashlib
@@ -32,6 +35,7 @@ EXPECTED_PAYLOAD = sorted([
     "plugin/.claude-plugin/plugin.json",
     "plugin/.codex-plugin/plugin.json",
     "plugin/jokbo.py",
+    "plugin/pluginroot.py",
     "plugin/README.md",
     "plugin/LICENSE",
     "plugin/commands/file.md",
@@ -458,11 +462,16 @@ class C3RootShim(unittest.TestCase):
             "jokbo.plugin_root.__globals__ is jokbo.__dict__ and "
             "jokbo.main.__globals__ is jokbo.__dict__)\n"
             "    out['version'] = jokbo.version()\n"
-            "    jokbo.load = lambda path, default=None: "
-            "{'links': {'zz': '/nonexistent-jokbo-zz'}} "
-            "if str(path).endswith('hunsu.local.json') else {}\n"
-            "    out['patched'] = jokbo.plugin_root("
-            "'/nonexistent-jokbo-target', 'zz')\n"
+            "    import types\n"
+            "    out['pluginroot'] = os.path.realpath(jokbo.pluginroot.__file__)\n"
+            "    stub = {'name': 'zz', 'root': '/nonexistent-jokbo-zz', "
+            "'host': 'claude-code', 'via': 'link', 'marketplace': None, "
+            "'declared': None, 'version': None, 'note': None, 'reason': None}\n"
+            "    jokbo.pluginroot = types.SimpleNamespace("
+            "resolve=lambda target, name, environ=None: dict(stub))\n"
+            "    got = jokbo.plugin_root('/nonexistent-jokbo-target', 'zz')\n"
+            "    out['patched'] = got['root']\n"
+            "    out['unchanged'] = got == stub\n"
             "except BaseException as e:\n"
             "    print('C3-PROBE-FAILED:' + type(e).__name__ + ':' + str(e))\n"
             "    sys.exit(5)\n"
@@ -485,8 +494,14 @@ class C3RootShim(unittest.TestCase):
         self.assertIs(out.get("globals_are_dict"), True,
                       "the engine's functions do not use jokbo.__dict__ as globals")
         self.assertEqual(out.get("version"), v)
+        self.assertEqual(out.get("pluginroot"),
+                         os.path.realpath(os.path.join(PLUGIN, "pluginroot.py")),
+                         "jokbo.pluginroot is not the file beside the engine")
         self.assertEqual(out.get("patched"), "/nonexistent-jokbo-zz",
-                         "the engine's plugin_root did not see the patched load")
+                         "the engine's plugin_root did not see the patched "
+                         "jokbo.pluginroot")
+        self.assertIs(out.get("unchanged"), True,
+                      "plugin_root did not return the resolver's dict unchanged")
 
 
 # --------------------------------------------------------------- C4
@@ -862,8 +877,14 @@ class C7LinkedCatalogs(unittest.TestCase):
 
     def _find(self, copy, t, p):
         env = child_env()
-        env.pop("CLAUDE_CONFIG_DIR", None)
+        for key in ("CLAUDE_CONFIG_DIR", "AGENT_CODEX_HOME", "CODEX_HOME"):
+            env.pop(key, None)
+        env["AGENT_HOST"] = "claude-code"
         env["HUNSU_CLAUDE_DIR"] = os.path.join(t, "claude-home")
+        env["HUNSU_CODEX_DIR"] = os.path.join(t, "codex-home")
+        env["HOME"] = os.path.join(t, "home")
+        os.makedirs(env["HUNSU_CODEX_DIR"], exist_ok=True)
+        os.makedirs(env["HOME"], exist_ok=True)
         r = subprocess.run(
             [sys.executable, os.path.join(copy, "jokbo.py"), "find", "kestrel",
              "--target", p],
@@ -1100,6 +1121,8 @@ class C8FolderOfCheckouts(unittest.TestCase):
                 self._ran_from(r, child)
 
     def test_C8_8_child_symlinked_outside_folder_is_not_followed(self):
+        """The family's resolver takes an escaping child as named, its
+        catalog unread: the outside checkout's ./plugin is never chosen."""
         copy, t, p, m = self._market()
         q = os.path.join(t, "elsewhere")
         write_runtime(os.path.join(q, "plugin"))
@@ -1112,6 +1135,420 @@ class C8FolderOfCheckouts(unittest.TestCase):
         self._never_ran_from(r, os.path.join(q, "plugin"))
         self.assertEqual(r.returncode, 0,
                          "jokbo exited %d\nstderr: %s" % (r.returncode, r.stderr))
+
+    def _escaping_child(self, chain):
+        """M/probe leaves M by a relative symlink (directly, or through
+        M/hop); the outside checkout Q has a catalog naming ./plugin and a
+        probe of its own at its root, so the child taken as named runs."""
+        copy, t, p, m = self._market()
+        q = os.path.join(t, "elsewhere")
+        write_runtime(os.path.join(q, "plugin"))
+        write_claude_catalog(q, "./plugin")
+        write_runtime(q)
+        if chain:
+            os.symlink(os.path.join("..", "elsewhere"), os.path.join(m, "hop"))
+            os.symlink("hop", os.path.join(m, "probe"))
+        else:
+            os.symlink(os.path.join("..", "elsewhere"), os.path.join(m, "probe"))
+        self.assertEqual(os.path.realpath(os.path.join(m, "probe")),
+                         os.path.realpath(q))
+        self._no_market_catalog(m)
+        self._link(p, m)
+        r = self._find(copy, t, p)
+        self._never_ran_from(r, os.path.join(q, "plugin"))
+        self._ran_from(r, q)
+        self.assertEqual(r.returncode, 0,
+                         "jokbo exited %d\nstderr: %s" % (r.returncode, r.stderr))
+
+    def test_C8_9_child_relative_symlink_out_of_folder_is_taken_as_named(self):
+        """M/probe -> ../elsewhere: the child escapes M, its catalog is
+        unread, and the child itself (as named) is the root."""
+        self._escaping_child(chain=False)
+
+    def test_C8_10_child_chained_symlink_out_of_folder_is_taken_as_named(self):
+        """M/probe -> M/hop -> ../elsewhere: a chain leaving M escapes too."""
+        self._escaping_child(chain=True)
+
+    def test_C8_11_child_symlinked_inside_folder_is_followed(self):
+        """The control: M/probe -> M/inner stays inside M by realpath, so its
+        catalog is read and the checkout's ./plugin is where the read runs."""
+        copy, t, p, m = self._market()
+        inner = os.path.join(m, "inner")
+        write_runtime(os.path.join(inner, "plugin"))
+        write_claude_catalog(inner, "./plugin")
+        self.assertFalse(os.path.exists(os.path.join(inner, "probe.py")))
+        os.symlink("inner", os.path.join(m, "probe"))
+        self._no_market_catalog(m)
+        self._link(p, m)
+        r = self._find(copy, t, p)
+        self._ran_from(r, os.path.join(inner, "plugin"))
+        self.assertEqual(r.returncode, 0,
+                         "jokbo exited %d\nstderr: %s" % (r.returncode, r.stderr))
+
+
+# --------------------------------------------------------------- C9
+
+RESOLVER_SHA256 = "6318838886010a99b209728af9368d4a7c816bd7b4266fb69bef3d36e23eb35e"
+C9_MARKET = "probe-market"
+C9_FILE_READ = ["python3", "{plugin:probe}/probe.py", "{path}"]
+C9_DECISION_READ = ["python3", "{plugin:probe}/probe.py"]
+
+
+def c9_runtime(d, version, manifest=".claude-plugin", silent=False):
+    """A probe copy in d whose manifest says `version`."""
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "probe.py"), "w", encoding="utf-8") as fh:
+        fh.write("" if silent else C7_PROBE)
+    _write_json(os.path.join(d, manifest, "plugin.json"),
+                {"name": "probe", "version": version})
+    return d
+
+
+class C9SelectedHost(unittest.TestCase):
+    """{plugin:NAME} goes through the vendored plugin/pluginroot.py: only the
+    host AGENT_HOST selects, only the declared (or the one installed)
+    marketplace, and the resolver's version note is said by file, since and
+    decision reads."""
+
+    _ran_from = C7LinkedCatalogs._ran_from
+    _never_ran_from = C7LinkedCatalogs._never_ran_from
+
+    def _setup(self, declare=True, version="1.0.0", market=C9_MARKET,
+               reads=None):
+        """Returns (COPY, T, P).  P is a git project with a README and
+        hunsu.json declaring probe's reads (and probe itself if declare)."""
+        copy, err = make_copy(self)
+        self.assertIsNone(err, err)
+        self.assertTrue(os.path.isfile(os.path.join(copy, "jokbo.py")),
+                        "the copy has no jokbo.py")
+        self.assertTrue(os.path.isfile(os.path.join(copy, "pluginroot.py")),
+                        "the copy has no pluginroot.py beside jokbo.py")
+        t = fresh_dir(self)
+        self.assertFalse(in_work_tree(t), "%s is inside a git work tree" % t)
+        p = os.path.join(t, "project")
+        os.makedirs(p)
+        with open(os.path.join(p, "README.md"), "w", encoding="utf-8") as fh:
+            fh.write(C7_README)
+        for argv in (["git", "init", "-q"], ["git", "add", "README.md"],
+                     ["git"] + GIT_ID + ["commit", "-q", "-m", "site"]):
+            r = run(argv, p)
+            self.assertEqual(r.returncode, 0, "%s: %s" % (argv, r.stderr))
+        doc = {"reads": {"probe": reads or {"file": C9_FILE_READ,
+                                            "decision": C9_DECISION_READ}}}
+        if declare:
+            decl = {"version": version, "source": "local"}
+            if market:
+                decl["marketplace"] = market
+            doc["plugins"] = {"probe": decl}
+        else:
+            doc["plugins"] = {"other": {"version": "9.9.9",
+                                        "marketplace": "other-market"}}
+        _write_json(os.path.join(p, "hunsu.json"), doc)
+        for d in ("claude-home", "codex-home", "home"):
+            os.makedirs(os.path.join(t, d))
+        return copy, t, p
+
+    # ---- installs
+
+    def _claude_install(self, t, version="1.0.0", market=C9_MARKET,
+                        silent=False):
+        d = c9_runtime(os.path.join(t, "claude-installs", market, "probe",
+                                    version), version, silent=silent)
+        path = os.path.join(t, "claude-home", "plugins",
+                            "installed_plugins.json")
+        data, _ = load_json(path)
+        data = data or {"version": 2, "plugins": {}}
+        data["plugins"]["probe@" + market] = [
+            {"scope": "user", "installPath": d}]
+        _write_json(path, data)
+        return d
+
+    def _codex_install(self, t, versions=("1.0.0",), market=C9_MARKET,
+                       silent=False):
+        home = os.path.join(t, "codex-home")
+        config = os.path.join(home, "config.toml")
+        with open(config, "a", encoding="utf-8") as fh:
+            fh.write('[plugins."probe@%s"]\nenabled = true\n\n' % market)
+        out = []
+        for v in versions:
+            out.append(c9_runtime(os.path.join(home, "plugins", "cache", market,
+                                               "probe", v), v, ".codex-plugin",
+                                  silent=silent))
+        return out[0] if len(out) == 1 else out
+
+    # ---- running
+
+    def _env(self, t, host):
+        env = child_env()
+        for key in ("CLAUDE_CONFIG_DIR", "AGENT_CODEX_HOME", "CODEX_HOME"):
+            env.pop(key, None)
+        env["AGENT_HOST"] = host
+        env["HUNSU_CLAUDE_DIR"] = os.path.join(t, "claude-home")
+        env["HUNSU_CODEX_DIR"] = os.path.join(t, "codex-home")
+        env["HOME"] = os.path.join(t, "home")
+        return env
+
+    def _jokbo(self, copy, t, p, host, *argv):
+        r = subprocess.run(
+            [sys.executable, os.path.join(copy, "jokbo.py")] + list(argv)
+            + ["--target", p],
+            cwd=p, capture_output=True, text=True, env=self._env(t, host),
+            timeout=TIMEOUT)
+        self.assertNotIn(POISON_MSG, r.stdout + r.stderr)
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        return r
+
+    def _file(self, copy, t, p, host):
+        return self._jokbo(copy, t, p, host, "file", "README.md")
+
+    def _find(self, copy, t, p, host):
+        return self._jokbo(copy, t, p, host, "find", "kestrel")
+
+    def _not_read(self, r, reason, kind="file"):
+        line = "probe (declared `%s` read): not read — %s" % (kind, reason)
+        self.assertIn(line, r.stdout.splitlines(),
+                      "no line %r\nstdout: %s\nstderr: %s"
+                      % (line, r.stdout, r.stderr))
+
+    def _no_note(self, r):
+        self.assertNotIn("hunsu.json declares", r.stdout,
+                         "a version note was said: %s" % r.stdout)
+
+    def _note_before(self, r, kind, note):
+        line = "probe (declared `%s` read): %s" % (kind, note)
+        lines = r.stdout.splitlines()
+        self.assertIn(line, lines, "no note line %r\nstdout: %s\nstderr: %s"
+                      % (line, r.stdout, r.stderr))
+        self.assertEqual(lines.count(line), 1, "the note is said more than once")
+        return lines.index(line), lines
+
+    # ---- cases
+
+    def test_C9_codex_only_install_runs_only_on_codex(self):
+        copy, t, p = self._setup()
+        cx = self._codex_install(t)
+        r = self._file(copy, t, p, "codex")
+        self._ran_from(r, cx)
+        r = self._find(copy, t, p, "codex")
+        self._ran_from(r, cx)
+        r = self._file(copy, t, p, "claude-code")
+        self._never_ran_from(r, cx)
+        self._not_read(r, "plugin probe@probe-market is declared for this "
+                          "project but not installed for it here on "
+                          "claude-code — `hunsu install`")
+
+    def test_C9_claude_only_install_runs_only_on_claude_code(self):
+        copy, t, p = self._setup()
+        cl = self._claude_install(t)
+        r = self._file(copy, t, p, "claude-code")
+        self._ran_from(r, cl)
+        r = self._file(copy, t, p, "codex")
+        self._never_ran_from(r, cl)
+        self._not_read(r, "plugin probe@probe-market is declared for this "
+                          "project but not installed for it here on codex — "
+                          "`hunsu install`")
+        r = self._find(copy, t, p, "codex")
+        self._never_ran_from(r, cl)
+        self._not_read(r, "plugin probe@probe-market is declared for this "
+                          "project but not installed for it here on codex — "
+                          "`hunsu install`", "decision")
+
+    def test_C9_both_installed_the_selected_hosts_copy_wins(self):
+        copy, t, p = self._setup()
+        cl = self._claude_install(t)
+        cx = self._codex_install(t)
+        self.assertNotEqual(cl, cx)
+        for host, win, lose in (("claude-code", cl, cx), ("codex", cx, cl)):
+            with self.subTest(host=host):
+                for r in (self._file(copy, t, p, host),
+                          self._find(copy, t, p, host)):
+                    self._ran_from(r, win)
+                    self._never_ran_from(r, lose)
+
+    def test_C9_unset_or_other_agent_host_selects_claude_code(self):
+        copy, t, p = self._setup()
+        cl = self._claude_install(t)
+        cx = self._codex_install(t)
+        for host in ("", "Codex", "claude"):
+            with self.subTest(host=host):
+                r = self._file(copy, t, p, host)
+                self._ran_from(r, cl)
+                self._never_ran_from(r, cx)
+
+    def test_C9_two_marketplaces_the_declared_one_runs(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup(market="market-a")
+                if host == "codex":
+                    a = self._codex_install(t, market="market-a")
+                    b = self._codex_install(t, market="market-b")
+                else:
+                    a = self._claude_install(t, market="market-a")
+                    b = self._claude_install(t, market="market-b")
+                for r in (self._file(copy, t, p, host),
+                          self._find(copy, t, p, host)):
+                    self._ran_from(r, a)
+                    self._never_ran_from(r, b)
+
+    def test_C9_two_marketplaces_undeclared_is_not_read(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup(declare=False)
+                if host == "codex":
+                    a = self._codex_install(t, market="market-a")
+                    b = self._codex_install(t, market="market-b")
+                else:
+                    a = self._claude_install(t, market="market-a")
+                    b = self._claude_install(t, market="market-b")
+                r = self._file(copy, t, p, host)
+                self._never_ran_from(r, a)
+                self._never_ran_from(r, b)
+                self._not_read(r, "plugin probe has installations in several "
+                                  "marketplaces on %s: market-a, market-b; "
+                                  "declare the marketplace" % host)
+
+    def test_C9_undeclared_single_marketplace_runs_without_a_note(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup(declare=False)
+                if host == "codex":
+                    d = self._codex_install(t, versions=("1.5.0",),
+                                            market="market-a")
+                else:
+                    d = self._claude_install(t, version="1.5.0",
+                                             market="market-a")
+                for r in (self._file(copy, t, p, host),
+                          self._find(copy, t, p, host)):
+                    self._ran_from(r, d)
+                    self._no_note(r)
+
+    def test_C9_undeclared_and_installed_nowhere_is_not_read(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup(declare=False)
+                r = self._file(copy, t, p, host)
+                self._not_read(r, "plugin probe is not linked or installed "
+                                  "here on %s" % host)
+                r = self._find(copy, t, p, host)
+                self._not_read(r, "plugin probe is not linked or installed "
+                                  "here on %s" % host, "decision")
+
+    def test_C9_a_version_differing_from_the_pin_runs_and_is_noted(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup(version="1.0.0")
+                if host == "codex":
+                    d = self._codex_install(t, versions=("1.5.0",))
+                else:
+                    d = self._claude_install(t, version="1.5.0")
+                note = ("hunsu.json declares probe 1.0.0; the %s copy at %s "
+                        "is 1.5.0" % (host, d))
+                for kind, r in (("file", self._file(copy, t, p, host)),
+                                ("decision", self._find(copy, t, p, host))):
+                    self._ran_from(r, d)
+                    at, lines = self._note_before(r, kind, note)
+                    ran = [i for i, line in enumerate(lines)
+                           if C7_MARK + os.path.realpath(d) in line]
+                    self.assertTrue(ran and at < ran[0],
+                                    "the note is not before the read's output:"
+                                    " %s" % r.stdout)
+
+    def test_C9_the_note_is_said_even_when_the_read_prints_nothing(self):
+        copy, t, p = self._setup(version="1.0.0")
+        d = self._claude_install(t, version="1.5.0", silent=True)
+        note = ("hunsu.json declares probe 1.0.0; the claude-code copy at %s "
+                "is 1.5.0" % d)
+        self._note_before(self._file(copy, t, p, "claude-code"), "file", note)
+        self._note_before(self._find(copy, t, p, "claude-code"), "decision",
+                          note)
+
+    def test_C9_the_note_is_said_by_a_since_read(self):
+        copy, t, p = self._setup(version="1.0.0", reads={
+            "since": ["python3", "{plugin:probe}/probe.py", "{since}"]})
+        d = self._claude_install(t, version="1.5.0")
+        note = ("hunsu.json declares probe 1.0.0; the claude-code copy at %s "
+                "is 1.5.0" % d)
+        r = self._jokbo(copy, t, p, "claude-code", "since", "HEAD")
+        self._note_before(r, "since", note)
+
+    def test_C9_a_map_read_says_no_note(self):
+        copy, t, p = self._setup(version="1.0.0", reads={
+            "map": ["python3", "{plugin:probe}/probe.py"]})
+        self._claude_install(t, version="1.5.0")
+        r = self._jokbo(copy, t, p, "claude-code", "map")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self._no_note(r)
+        self.assertNotIn("not read", r.stdout)
+
+    def test_C9_a_codex_cache_holding_the_pin_runs_the_pin_without_a_note(self):
+        copy, t, p = self._setup(version="1.0.0")
+        pin, other = self._codex_install(t, versions=("1.0.0", "1.5.0"))
+        for r in (self._file(copy, t, p, "codex"),
+                  self._find(copy, t, p, "codex")):
+            self._ran_from(r, pin)
+            self._never_ran_from(r, other)
+            self._no_note(r)
+
+    def test_C9_a_stale_link_is_not_read_and_never_falls_back(self):
+        for host in ("claude-code", "codex"):
+            with self.subTest(host=host):
+                copy, t, p = self._setup()
+                cl = self._claude_install(t)
+                cx = self._codex_install(t)
+                missing = os.path.join(t, "missing-checkout")
+                self.assertFalse(os.path.exists(missing))
+                _write_json(os.path.join(p, "hunsu.local.json"),
+                            {"links": {"probe": missing}})
+                for kind, r in (("file", self._file(copy, t, p, host)),
+                                ("decision", self._find(copy, t, p, host))):
+                    self._never_ran_from(r, cl)
+                    self._never_ran_from(r, cx)
+                    self._not_read(r, "plugin probe link directory is "
+                                      "missing: %s" % missing, kind)
+
+    def test_C9_pluginroot_is_the_family_resolver_byte_identical(self):
+        path = os.path.join(PLUGIN, "pluginroot.py")
+        self.assertTrue(os.path.isfile(path), "plugin/pluginroot.py does not exist")
+        self.assertFalse(os.path.islink(path), "plugin/pluginroot.py is a symlink")
+        with open(path, "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(),
+                             RESOLVER_SHA256)
+        self.assertIn("plugin/pluginroot.py", EXPECTED_PAYLOAD)
+        self.assertIn("plugin/pluginroot.py", payload_files() or [])
+
+    def test_C9_the_engine_loads_the_resolver_beside_it_not_from_sys_path(self):
+        copy, t, p = self._setup()
+        decoy = os.path.join(t, "decoy")
+        os.makedirs(decoy)
+        with open(os.path.join(decoy, "pluginroot.py"), "w",
+                  encoding="utf-8") as fh:
+            fh.write(POISON)
+        with open(os.path.join(p, "pluginroot.py"), "w", encoding="utf-8") as fh:
+            fh.write(POISON)
+        cl = self._claude_install(t)
+        env = self._env(t, "claude-code")
+        env["PYTHONPATH"] = decoy
+        r = subprocess.run(
+            [sys.executable, os.path.join(copy, "jokbo.py"), "file", "README.md",
+             "--target", p], cwd=p, capture_output=True, text=True, env=env,
+            timeout=TIMEOUT)
+        self.assertNotIn(POISON_MSG, r.stdout + r.stderr)
+        self._ran_from(r, cl)
+        code = ("import sys, os, json; sys.path.insert(0, %r); "
+                "sys.path.insert(0, %r); import jokbo; "
+                "print(json.dumps([os.path.realpath(jokbo.pluginroot.__file__), "
+                "jokbo.plugin_root(%r, 'probe')]))" % (decoy, copy, p))
+        r = subprocess.run([sys.executable, "-c", code], cwd=p,
+                           capture_output=True, text=True, env=env,
+                           timeout=TIMEOUT)
+        self.assertNotIn(POISON_MSG, r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        where, got = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(where, os.path.realpath(os.path.join(copy, "pluginroot.py")))
+        self.assertEqual(got, {"name": "probe", "root": cl, "host": "claude-code",
+                               "via": "install", "marketplace": C9_MARKET,
+                               "declared": "1.0.0", "version": "1.0.0",
+                               "note": None, "reason": None})
 
 
 if __name__ == "__main__":

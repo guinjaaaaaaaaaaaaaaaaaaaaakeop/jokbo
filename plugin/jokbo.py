@@ -24,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 import functools
 import hashlib
 import io
+import importlib.util
 import inspect
 import json
 import math
@@ -36,6 +37,10 @@ import time
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+_resolver_spec = importlib.util.spec_from_file_location("pluginroot", os.path.join(HERE, "pluginroot.py"))
+pluginroot = importlib.util.module_from_spec(_resolver_spec)
+_resolver_spec.loader.exec_module(pluginroot)
+
 CACHE = ".jokbo"
 INDEX_FORMAT = 8     # 7 clipped a section at its last committed line — its `changed` is rebuilt, with blame
 MIGRATES = (5, 6)  # an index of these formats is brought up to date entry by entry, without blame (5 lacked `level`, `keys`;
@@ -209,103 +214,41 @@ def declared_reads(target):
     return out
 
 
-def install_entry(entries, target):
-    want = os.path.realpath(target)
-    for e in entries:
-        if e.get("scope") == "project" and e.get("projectPath") and os.path.realpath(e["projectPath"]) == want:
-            return e
-    for e in entries:
-        if e.get("scope") == "user":
-            return e
-    return entries[0] if entries else {}
-
-
-def catalog_root(root, name):
-    """The first matching catalog's existing local source contained inside root, else None."""
-    if not isinstance(root, str) or not root:
-        return None
-    for catalog in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json"):
-        data = load(os.path.join(root, catalog))
-        entries = data.get("plugins", []) if isinstance(data, dict) else []
-        if not isinstance(entries, list):
-            continue
-        source = next((entry.get("source") for entry in entries
-                       if isinstance(entry, dict) and entry.get("name") == name), None)
-        if isinstance(source, dict):
-            source = source.get("path") if source.get("source") == "local" else None
-        if (not isinstance(source, str) or not source or os.path.isabs(source)
-                or "://" in source or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", source)
-                or ".." in source.split(os.sep)):
-            continue
-        path = os.path.normpath(os.path.join(root, source))
-        real_root, real_path = os.path.realpath(root), os.path.realpath(path)
-        if os.path.commonpath((real_root, real_path)) == real_root and os.path.isdir(path):
-            return path
-    return None
-
-
-def child_catalog_root(root, name):
-    """The named child's own catalog, one level inside root, else None."""
-    if (not isinstance(root, str) or not root or not isinstance(name, str)
-            or not name or name in (".", "..") or "/" in name or os.sep in name):
-        return None
-    child = os.path.join(root, name)
-    real_root, real_child = os.path.realpath(root), os.path.realpath(child)
-    if os.path.isdir(child) and os.path.commonpath((real_root, real_child)) == real_root:
-        return catalog_root(child, name)
-    return None
-
-
 def plugin_root(target, name):
-    """`{plugin:NAME}` -> that plugin's root: a local link or directory marketplace follows its catalog first,
-    then its named child's catalog, then its legacy name subdirectory (or the link itself); else the host's install record for
-    the marketplace the manifest declares, else any install of that name. None when it is not here."""
-    local = load(os.path.join(target, "hunsu.local.json"))
-    links = local.get("links", {})
-    if name in links:
-        root = links[name]
-        return (catalog_root(root, name) or child_catalog_root(root, name)
-                or (os.path.join(root, name) if os.path.isdir(os.path.join(root, name)) else root))
-    home = os.environ.get("HUNSU_CLAUDE_DIR") or os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
-    installed = load(os.path.join(home, "plugins", "installed_plugins.json")).get("plugins", {})
-    market = local.get("dev", {}).get(name) or (load(os.path.join(target, "hunsu.json")).get("plugins", {}).get(name) or {}).get("marketplace")
-    if market:
-        src = (load(os.path.join(home, "plugins", "known_marketplaces.json")).get(market) or {}).get("source") or {}
-        if src.get("source") == "directory":
-            root = src.get("path", "")
-            catalog = catalog_root(root, name) or child_catalog_root(root, name)
-            if catalog:
-                return catalog
-            if os.path.isdir(os.path.join(root, name)):
-                return os.path.join(root, name)
-        entries = installed.get("%s@%s" % (name, market)) or []
-        if entries:
-            return install_entry(entries, target).get("installPath")
-    for key, entries in installed.items():
-        if key.split("@")[0] == name and entries:
-            return install_entry(entries, target).get("installPath")
-    return None
+    """The shared resolver's answer for this process's host: AGENT_HOST=codex selects Codex, else Claude Code.
+    A hunsu.local.json link comes first, relative to the project; a missing link directory gives no root, with no
+    fallback. Else use the marketplace hunsu.json declares (a hunsu.local.json `dev` trial overriding), on that host
+    only. A plugin hunsu.json does not declare is found only when exactly one marketplace has it installed there;
+    never another host's copy or another marketplace's plugin of that name. Returns the resolver's dict unchanged:
+    root None with a reason when not found, a note when the copy's version differs from hunsu.json's pin."""
+    return pluginroot.resolve(target, name)
 
 
 def run_read(target, plugin, argv, values, timeout=20):
-    """One declared read: (text, None) or (None, why not). Placeholders it names must have values; a missing plugin or a
-    failing command is said, never guessed around."""
-    out = []
+    """One declared read: (text, why, notes), with resolver notes in argv order, each once. Returns why for a plugin
+    not found (the resolver's reason), a placeholder with no value, or a read that cannot run, times out, or exits
+    other than 0 or 1 with nothing on stdout. Says nothing itself; callers say why for `file`, `since` and `decision`
+    reads only. Failures are never guessed around."""
+    out, notes = [], []
     for a in argv:
         if a == "{paths}":   # a list: one argument per path
             if values.get("paths") is None:
-                return None, "no {paths} to give it"
+                return None, "no {paths} to give it", notes
             out.extend(values["paths"])
             continue
-        for m in set(re.findall(r"\{plugin:([\w.-]+)\}", a)):
-            root = plugin_root(target, m)
-            if not root:
-                return None, "plugin %s is not installed or linked here" % m
+        for m in dict.fromkeys(re.findall(r"\{plugin:([\w.-]+)\}", a)):
+            resolved = plugin_root(target, m)
+            note = resolved["note"]
+            if note and note not in notes:
+                notes.append(note)
+            root = resolved["root"]
+            if root is None:
+                return None, resolved["reason"], notes
             a = a.replace("{plugin:%s}" % m, root.replace(os.sep, "/"))
         for key in ("target", "path", "since", "after"):
             if "{%s}" % key in a:
                 if values.get(key) is None:
-                    return None, "no {%s} to give it" % key
+                    return None, "no {%s} to give it" % key, notes
                 a = a.replace("{%s}" % key, values[key])
         out.append(a)
     if out and out[0] in ("python3", "python"):
@@ -313,15 +256,15 @@ def run_read(target, plugin, argv, values, timeout=20):
     try:
         done = subprocess.run(out, cwd=target, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as err:
-        return None, "%s did not answer (%s)" % (plugin, type(err).__name__)
+        return None, "%s did not answer (%s)" % (plugin, type(err).__name__), notes
     text = (done.stdout or "").rstrip()
     if not text and done.returncode not in (0, 1):
-        return None, "%s exited %d: %s" % (plugin, done.returncode, (done.stderr or "").strip()[-200:])
-    return text, None
+        return None, "%s exited %d: %s" % (plugin, done.returncode, (done.stderr or "").strip()[-200:]), notes
+    return text, None, notes
 
 
 def overlay(target, kind, values, timeout=20):
-    """[(plugin, text | None, why | None)] for every plugin that declares this kind of read."""
+    """[(plugin, text | None, why | None, notes)] for every plugin that declares this kind of read."""
     return [(p, *run_read(target, p, kinds[kind], dict(values, target=target), timeout)) for p, kinds in sorted(declared_reads(target).items()) if kind in kinds]
 
 
@@ -337,7 +280,7 @@ def hands(target, paths, after=None):
     out, want = {}, set(paths)
     if not want:
         return out
-    for plugin, text, why in overlay(target, "hands", {"paths": sorted(want), "after": after}, HANDS_TIMEOUT):
+    for plugin, text, why, notes in overlay(target, "hands", {"paths": sorted(want), "after": after}, HANDS_TIMEOUT):
         try:
             said = json.loads(text) if text and text.strip() else {}
         except ValueError:
@@ -956,7 +899,8 @@ def file_report(target, path, brief=False):
         for c in hist:
             lines.append("  %s %s %s — %s" % (when(c["at"]), c["sha"][:7], c["author"], c["subject"]))
     said_something = bool(secs or hist or (doc and named))
-    for plugin, text, why in overlay(target, "file", {"path": path}):
+    for plugin, text, why, notes in overlay(target, "file", {"path": path}):
+        lines.extend("%s (declared `file` read): %s" % (plugin, note) for note in notes)
         if why:
             lines.append("%s (declared `file` read): not read — %s" % (plugin, why))
             continue
@@ -1026,7 +970,8 @@ def since_report(target, rev=None, brief=False):
     if dirty:
         lines.append("uncommitted here: %d file(s)" % len(dirty))
     if not brief:
-        for plugin, text, why in overlay(target, "since", {"since": rev}):
+        for plugin, text, why, notes in overlay(target, "since", {"since": rev}):
+            lines.extend("%s (declared `since` read): %s" % (plugin, note) for note in notes)
             if why:
                 lines.append("%s (declared `since` read): not read — %s" % (plugin, why))
             elif text.strip():
@@ -1115,7 +1060,8 @@ def find_report(target, terms):
         lines.append("commits:")
         for c in hits:
             lines.append("  %s %s — %s" % (when(c["at"]), c["sha"][:7], c["subject"]))
-    for plugin, text, why in overlay(target, "decision", {}):
+    for plugin, text, why, notes in overlay(target, "decision", {}):
+        lines.extend("%s (declared `decision` read): %s" % (plugin, note) for note in notes)
         if why:
             lines.append("%s (declared `decision` read): not read — %s" % (plugin, why))
             continue
@@ -1293,7 +1239,7 @@ def map_report(target):
     inside = nested_line(target)
     if inside:
         lines.append(inside)
-    for plugin, text, why in overlay(target, "map", {}):
+    for plugin, text, why, notes in overlay(target, "map", {}):
         if text and text.strip():
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
             lines.append("  %s: %s" % (plugin, " · ".join(cut(l, 240) for l in first)))
@@ -1326,7 +1272,7 @@ def note_report(target, path, keep=None):
     path = relpath(target, path)
     keep = keep or (lambda line, form, section=None: True)
     lines, about = [], False
-    for plugin, text, why in overlay(target, "note", {"path": path}):
+    for plugin, text, why, notes in overlay(target, "note", {"path": path}):
         if text and text.strip():
             for l in [l.strip() for l in text.strip().split("\n") if l.strip()][:NOTE_LINES]:
                 line = "  %s: %s" % (plugin, cut(l, NOTE_WIDTH))

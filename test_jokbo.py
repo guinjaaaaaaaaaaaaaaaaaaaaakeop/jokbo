@@ -40,6 +40,37 @@ def hook(name, payload, **env):
     return done.returncode, done.stdout
 
 
+@contextlib.contextmanager
+def pinned_host(host):
+    """os.environ pinned for a call: AGENT_HOST, empty temp Claude and Codex homes, a temp HOME, and none of the other
+    home variables; restored after. Yields the base directory (claude-home, codex-home, home inside it)."""
+    base = os.path.realpath(tempfile.mkdtemp(prefix="jokbo-host-"))
+    saved = dict(os.environ)
+    try:
+        for d in ("claude-home", "codex-home", "home"):
+            os.makedirs(os.path.join(base, d))
+        for key in ("CLAUDE_CONFIG_DIR", "AGENT_CODEX_HOME", "CODEX_HOME"):
+            os.environ.pop(key, None)
+        os.environ.update(AGENT_HOST=host, HUNSU_CLAUDE_DIR=os.path.join(base, "claude-home"),
+                          HUNSU_CODEX_DIR=os.path.join(base, "codex-home"), HOME=os.path.join(base, "home"))
+        yield base
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+        shutil.rmtree(base, ignore_errors=True)
+
+
+PROBE_MARK = "probe ran from "
+
+
+def probe_copy(d, version, manifest=".claude-plugin"):
+    """A plugin copy that prints where it runs from; its manifest says `version`."""
+    write(os.path.join(d, "probe.py"), "import os\nprint(%r + os.path.realpath(os.path.dirname(os.path.abspath(__file__))))\n"
+          % PROBE_MARK)
+    write(os.path.join(d, manifest, "plugin.json"), {"name": "probe", "version": version})
+    return d
+
+
 class Repo:
     """A project with a plan, a README, code and two commits — the backend's contract written after the code it names."""
     def __enter__(self):
@@ -149,7 +180,7 @@ def test_find_reaches_documents_the_codes_own_words_and_commits():
 def test_a_declared_read_is_run_and_labelled_and_a_missing_plugin_is_said():
     """The overlay: the lock's `reads` (hunsu.json's on top) are run with their placeholders and printed under the plugin's
     name. jokbo knows no product: the plugin here is a script that echoes what it was given."""
-    with Repo() as r:
+    with Repo() as r, pinned_host("claude-code"):
         plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
         try:
             write(os.path.join(plug, "echo.py"), "import sys\nprint('relations on ' + sys.argv[1])\nprint('  concept:feed — the front page')\n")
@@ -159,7 +190,7 @@ def test_a_declared_read_is_run_and_labelled_and_a_missing_plugin_is_said():
                                                       "gone": {"file": ["python3", "{plugin:gone}/x.py", "{path}"]}}})
             out = run("file", "src/feed.ts", "--target", r.dir)[1]
             assert "netty (declared `file` read):" in out and "relations on src/feed.ts" in out, out
-            assert "gone (declared `file` read): not read — plugin gone is not installed or linked here" in out, out
+            assert "gone (declared `file` read): not read — plugin gone is not linked or installed here on claude-code" in out.splitlines(), out
             out = run("find", "front", "--target", r.dir)[1]
             assert "netty (declared `decision` read)" in out and "concept:feed — the front page" in out, out
             out = run("index", "--target", r.dir)[1]
@@ -169,6 +200,120 @@ def test_a_declared_read_is_run_and_labelled_and_a_missing_plugin_is_said():
             assert "netty" not in out, "nothing to say: no empty heading"
         finally:
             shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_the_resolver_is_the_vendored_file_beside_the_engine():
+    """J1: jokbo holds plugin/pluginroot.py as its module-level `pluginroot`, the file beside jokbo.py, byte-identical to the
+    family's resolver."""
+    import hashlib
+    path = os.path.join(PLUGIN, "pluginroot.py")
+    assert os.path.isfile(path), "plugin/pluginroot.py does not exist"
+    with open(path, "rb") as fh:
+        assert hashlib.sha256(fh.read()).hexdigest() == "6318838886010a99b209728af9368d4a7c816bd7b4266fb69bef3d36e23eb35e"
+    assert hasattr(jokbo, "pluginroot"), "jokbo has no module-level pluginroot"
+    assert os.path.realpath(jokbo.pluginroot.__file__) == os.path.realpath(path), jokbo.pluginroot.__file__
+
+
+def test_plugin_root_is_the_resolvers_dict_for_the_selected_host():
+    """J1: jokbo.plugin_root(target, name) is pluginroot.resolve's dict unchanged — a Codex-only install is found on codex
+    and is not, with the resolver's reason, on claude-code."""
+    target = os.path.realpath(tempfile.mkdtemp(prefix="jokbo-target-"))
+    try:
+        write(os.path.join(target, "hunsu.json"), {"plugins": {"probe": {"version": "1.0.0", "marketplace": "pm"}}})
+        with pinned_host("codex") as base:
+            home = os.path.join(base, "codex-home")
+            write(os.path.join(home, "config.toml"), '[plugins."probe@pm"]\nenabled = true\n')
+            copy = probe_copy(os.path.join(home, "plugins", "cache", "pm", "probe", "1.0.0"), "1.0.0", ".codex-plugin")
+            got = jokbo.plugin_root(target, "probe")
+            assert got == {"name": "probe", "root": copy, "host": "codex", "via": "install", "marketplace": "pm",
+                           "declared": "1.0.0", "version": "1.0.0", "note": None, "reason": None}, got
+            os.environ["AGENT_HOST"] = "claude-code"
+            got = jokbo.plugin_root(target, "probe")
+            assert got == {"name": "probe", "root": None, "host": "claude-code", "via": None, "marketplace": "pm",
+                           "declared": "1.0.0", "version": None, "note": None,
+                           "reason": "plugin probe@pm is declared for this project but not installed for it here on claude-code"
+                                     " — `hunsu install`"}, got
+            assert hasattr(jokbo, "pluginroot") and got == jokbo.pluginroot.resolve(target, "probe"), got
+    finally:
+        shutil.rmtree(target, ignore_errors=True)
+
+
+def test_run_read_gives_its_text_why_and_the_resolvers_notes():
+    """J1: run_read returns (text, why, notes): a copy whose version differs from the pin is run and its note given once;
+    a plugin not found is not run, with the resolver's reason and no notes; a read naming no plugin has no notes; overlay
+    gives (plugin, text, why, notes)."""
+    target = os.path.realpath(tempfile.mkdtemp(prefix="jokbo-target-"))
+    try:
+        write(os.path.join(target, "hunsu.json"), {"plugins": {"probe": {"version": "1.0.0", "marketplace": "pm"}}})
+        write(os.path.join(target, "README.md"), "# Site\n")
+        with pinned_host("claude-code") as base:
+            copy = probe_copy(os.path.join(base, "installs", "probe", "1.5.0"), "1.5.0")
+            write(os.path.join(base, "claude-home", "plugins", "installed_plugins.json"),
+                  {"version": 2, "plugins": {"probe@pm": [{"scope": "user", "installPath": copy}]}})
+            note = "hunsu.json declares probe 1.0.0; the claude-code copy at %s is 1.5.0" % copy
+            values = {"path": "README.md", "target": target}
+            got = jokbo.run_read(target, "probe", ["python3", "{plugin:probe}/probe.py", "{path}"], values)
+            assert isinstance(got, tuple) and len(got) == 3, got
+            text, why, notes = got
+            assert why is None and text is not None and PROBE_MARK + os.path.realpath(copy) in text, got
+            assert notes == [note], notes
+            got = jokbo.run_read(target, "probe", ["python3", "{plugin:probe}/probe.py", "{plugin:probe}"], values)
+            assert len(got) == 3 and got[2] == [note], ("each note once", got)
+            got = jokbo.run_read(target, "gone", ["python3", "{plugin:gone}/x.py"], values)
+            assert got == (None, "plugin gone is not linked or installed here on claude-code", []), got
+            got = jokbo.run_read(target, "plain", ["python3", "-c", "print('plain read')"], values)
+            assert got == ("plain read", None, []), got
+            write(os.path.join(target, "hunsu.json"), {"plugins": {"probe": {"version": "1.0.0", "marketplace": "pm"}},
+                                                       "reads": {"probe": {"file": ["python3", "{plugin:probe}/probe.py"]}}})
+            rows = jokbo.overlay(target, "file", {"path": "README.md"})
+            assert len(rows) == 1 and len(rows[0]) == 4, rows
+            assert rows[0][0] == "probe" and rows[0][2] is None and rows[0][3] == [note], rows
+    finally:
+        shutil.rmtree(target, ignore_errors=True)
+
+
+def test_freshness_weighs_a_sections_last_change_against_its_files():
+    """provenance-and-freshness, called directly: a section's age against the file's — uncommitted lines are "being
+    edited", a file changed after the section says to read it against the code, uncommitted changes to the file are
+    said, and a section as new as its file is only dated."""
+    t0, t1 = 1756684800, 1756771200   # 2025-09-01 00:00Z, 2025-09-02 00:00Z
+    assert jokbo.freshness({"changed": None}, t1) == "being edited (uncommitted)"
+    assert jokbo.freshness({"changed": t0}, t1) == \
+        "written 2025-09-01 00:00Z; the file changed after (2025-09-02 00:00Z) — read it against the code"
+    assert jokbo.freshness({"changed": t0}, "uncommitted") == \
+        "written 2025-09-01 00:00Z; the file has uncommitted changes since"
+    assert jokbo.freshness({"changed": t1}, t0) == "written 2025-09-02 00:00Z"
+    assert jokbo.freshness({"changed": t1}, t1) == "written 2025-09-02 00:00Z"
+
+
+def test_blame_times_dates_each_committed_line_and_leaves_uncommitted_ones_out():
+    """provenance-and-freshness, called directly: blame_times gives each committed line the time of the commit that last
+    changed it, and no time to a line not yet committed — what freshness weighs."""
+    with Repo() as r:
+        t1 = calendar.timegm(time.strptime("2026-09-01T00:00:00Z", "%Y-%m-%dT%H:%M:%SZ"))
+        t2 = calendar.timegm(time.strptime("2026-09-02T00:00:00Z", "%Y-%m-%dT%H:%M:%SZ"))
+        times = jokbo.blame_times(r.dir, "src/feed.ts")
+        lines = r.read("src/feed.ts").rstrip("\n").split("\n")
+        assert sorted(times) == list(range(1, len(lines) + 1)), times
+        assert times[len(lines)] == t2, ("the line the second commit added", times)
+        assert all(times[i] == t1 for i in range(1, len(lines))), times
+        write(r.p("src/feed.ts"), r.read("src/feed.ts") + "export const PAGE = 2;\n")
+        times = jokbo.blame_times(r.dir, "src/feed.ts")
+        assert len(lines) + 1 not in times and times[len(lines)] == t2, ("an uncommitted line has no time", times)
+        assert jokbo.blame_times(r.dir, "no/such/file.md") == {}
+
+
+def test_retired_mark_is_carried_by_a_retired_documents_quote_only():
+    """provenance-and-freshness, called directly: retired_mark is what every quote from a document that says at its top
+    it is retired carries, with the line that says so; a live document's quote carries nothing."""
+    with Repo() as r:
+        write(r.p("plan/OLD.md"), "# Old plan\n\n**Retired (2026-09-06):** no longer true; see plan/PLAN.md.\n\n## Feed\n\n"
+              "The feed was built nightly from D1 tables.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "the old plan, retired", env_date="2026-09-06T00:00:00Z")
+        idx = jokbo.index(r.dir)
+        assert jokbo.retired_mark(idx, "plan/OLD.md") == " — retired document (says so at line 3)"
+        assert jokbo.retired_mark(idx, "plan/PLAN.md") == ""
+        assert jokbo.retired_mark(idx, "no/such.md") == ""
 
 
 def test_the_cache_is_rebuilt_when_the_tree_moves_and_ignores_itself():

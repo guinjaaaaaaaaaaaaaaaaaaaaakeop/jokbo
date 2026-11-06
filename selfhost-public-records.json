@@ -1,19 +1,19 @@
 {
  "artifact": "selfhost/public-records@1",
- "what": "The jokbo 2.1.0 source exported for publication as one commit on the public main. Runtime, payload, catalog, documentation, test and metadata files are the approved private source commit's exact bytes; the root environment and ignore files (hunsu.json, hunsu.lock.json, hunsu-judgments.json, .gitignore) are preserved byte-for-byte from the base, the public 2.0.0 export, and are not the source's current environment; .chongdae/ and reviews/ hold the self-hosting records published with 2.0.0, carried unchanged. The private self-hosting history the source came from is not an ancestor of this commit, and this commit does not stand in for it.",
+ "what": "The jokbo 2.2.0 source exported for publication as one commit on the public main. Runtime, payload, catalog, documentation, test and metadata files are the approved private source commit's exact bytes; the root environment and ignore files (hunsu.json, hunsu.lock.json, hunsu-judgments.json, .gitignore) and AGENTS.md are preserved byte-for-byte from the base, the public 2.1.0 export, and are not the source's current environment or guide; the source's own mangsang model is not published; .chongdae/ and reviews/ hold the self-hosting records published with 2.0.0, carried unchanged. The private self-hosting history the source came from is not an ancestor of this commit, and this commit does not stand in for it.",
  "base": {
-  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
-  "tree": "9d49e1721625a67fced927b28b3d04662dc8c272",
-  "is": "the public main (2.0.0)"
+  "commit": "721bb2c267702036022b7298d8170546e83d5108",
+  "tree": "a6861166a3619f962704acd9cf04ff267783fdae",
+  "is": "the public main (2.1.0)"
  },
  "previous_export": {
-  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
-  "manifest_git_blob": "2e34b6cff20b744cce5b1395b8fe50e9c687c82f",
-  "is": "the 2.0.0 export's manifest, kept in this repository's history"
+  "commit": "721bb2c267702036022b7298d8170546e83d5108",
+  "manifest_git_blob": "c7e52cc6fce3aa9ecb91f19a6076eb53b451ac09",
+  "is": "the 2.1.0 export's manifest, kept in this repository's history"
  },
  "source": {
-  "commit": "9dae6fcc2d0d9374462b454e55dee7f290a2c26d",
-  "tree": "29bb3ad09a4a7faf4e00278b007f8384bc7e4021",
+  "commit": "8d7f5f5ae9d8d1338edbd3d5141e7ecfd98a8035",
+  "tree": "a16247ef40f55fbb0fd64233d938f7c6bdb2d5c2",
   "is": "the approved private source commit; not published, not an ancestor",
   "rule": "each file below has the same git blob and mode as in the source commit",
   "files": [
@@ -26,20 +26,14 @@
    {
     "path": ".claude-plugin/marketplace.json",
     "mode": "100644",
-    "git_blob": "5c82d4e7bc6d84aa01fd19cfc81a595bb44efb4a",
-    "sha256": "e80deede2221f2018cba840cdf9a3090ce589b995005b5e09ed1ac5c3decdece"
+    "git_blob": "23fcf3aa6b902edaea640702c050bc3837f9d9e9",
+    "sha256": "01f7e4977ffe8d2c01fbab8b007e7f3f19571185383154334390c1244fd37f79"
    },
    {
     "path": ".claude/settings.json",
     "mode": "100644",
     "git_blob": "ce9939c7cf6a17f403de4c66794aa78aebc5107c",
     "sha256": "f1879a2780c60b07730710f049b8a1a53ef0bb8ef0f48f8facaea43f90674e25"
-   },
-   {
-    "path": "AGENTS.md",
-    "mode": "100644",
-    "git_blob": "83d2f48d6af22e271b4059d5d5e25523301f48f3",
-    "sha256": "752055179fd6c4e2504414091f358b377b5b6e2967c37ca9e675a9ce741b53ee"
    },
    {
     "path": "CLAUDE.md",
@@ -56,8 +50,8 @@
    {
     "path": "README.md",
     "mode": "100644",
-    "git_blob": "1bb69daccc446a04d548eade1bec744b048a045b",
-    "sha256": "397b8a7a444e5f804fe3de2689eebfb09e3b55770e4c8c90d03f9d913b9816be"
+    "git_blob": "65c1f881336c3d5101c6adf5c9b7522defdfd3e3",
+    "sha256": "3e1efa4995f6efc5fd7b6e8734e6d76f28361833faaa81a1211a6f8fccc607f0"
    },
    {
     "path": "jokbo.py",
@@ -68,14 +62,14 @@
    {
     "path": "plugin/.claude-plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "067ca0ca1635e091b332b0a5d76f2ba87b9cd8ff",
-    "sha256": "9fb3a37edf6a5afb4966b6c5d566559fe8db9648973bd8ba41edb9350194fb13"
+    "git_blob": "b05272b7a3874a77addec3d073efd176b7aa450b",
+    "sha256": "c49a78803caa095f53628981867fb09fbf9b36cfaf5c4468d43417c947a4a9df"
    },
    {
     "path": "plugin/.codex-plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "545efc7b873a0e7bd3c91df6d25739057b44e03c",
-    "sha256": "91b4655fc23f0649d2f4b45db70c494c172b8d5b9f2e6686ef7722986959a283"
+    "git_blob": "6bf85288086e03f665ab461c0a3f5789424e08e8",
+    "sha256": "f07bb7b334d403b292dcaa6d6883a7818d5656f2f264992e12ac87d55cfe140c"
    },
    {
     "path": "plugin/LICENSE",
@@ -86,8 +80,8 @@
    {
     "path": "plugin/README.md",
     "mode": "100644",
-    "git_blob": "79294efd992208c24eb0e081af245289c49b6bb7",
-    "sha256": "cd892093dcffe5542e5075affa14ac7071a32ed3b492e479e8707908c872ff4c"
+    "git_blob": "6d3e4dde78d3cb7027dcc109a6b6d405c5ece8f3",
+    "sha256": "208fd33112d3c5deb6f92f20b7a0e858d5fcf1371c81e51226911fe700acb1b1"
    },
    {
     "path": "plugin/commands/file.md",
@@ -158,14 +152,20 @@
    {
     "path": "plugin/jokbo.py",
     "mode": "100644",
-    "git_blob": "a211c38e1bba358d01c3082426b5cb917de91a3a",
-    "sha256": "c96fdd08ae0c53a7bcb8a8aa21407d2fb2a1198c1cc6712f389f963deab60f55"
+    "git_blob": "40a5739b4a450fcf5cb5dd60b47dd52809327e2b",
+    "sha256": "c30dfb5a46770625fa27599bba734bd18f9f44a48740579d94a032f57af21768"
    },
    {
     "path": "plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "c40692711a09b130443dee6bc1b0d5bfcfc68933",
-    "sha256": "966853f8e0e4587b7cceef7d7fbf3963a4308341cf900fc748dba557ab4b6a3c"
+    "git_blob": "0ad373e623dc361b6436adaa942abfd328bc5c35",
+    "sha256": "e698860090058bf79459dbe908333ce33066ee2cf7ff40904dd487b314b720c7"
+   },
+   {
+    "path": "plugin/pluginroot.py",
+    "mode": "100644",
+    "git_blob": "980fd8c86c099a5229e6a11e690733e3315bb310",
+    "sha256": "6318838886010a99b209728af9368d4a7c816bd7b4266fb69bef3d36e23eb35e"
    },
    {
     "path": "plugin/skills/read/SKILL.md",
@@ -176,34 +176,22 @@
    {
     "path": "test_jokbo.py",
     "mode": "100644",
-    "git_blob": "3c4b61ccedb5ab1a499685089966773d0d8380a4",
-    "sha256": "92694409a40193d44bbcb1ba7884de98e31b06768271a13d005c9fc5170311dd"
+    "git_blob": "339f57fd28c3a34ece328dd994163ef321f4d619",
+    "sha256": "76ea51fce65913435ee0e8e0eab825a51d046e0a4a43156ea732074ff3746f33"
    },
    {
     "path": "test_packaging.py",
     "mode": "100644",
-    "git_blob": "fd9467b2baefd66f10e6a454f59ce84e94b4b5e5",
-    "sha256": "d670ef4d1f56f9dcec834289633b4e9e5133a44fb4e36755dffca84c207d3c9e"
+    "git_blob": "5546ac5e9832a16f1a8c9bb53b2935ba5208490b",
+    "sha256": "132c0212c2b8d8cfbf15194ced2665d506d7279a2085092ef79402251db0ad07"
    }
   ]
  },
  "preserved_from_base": {
-  "commit": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "commit": "721bb2c267702036022b7298d8170546e83d5108",
   "rule": "each file below has the same git blob and mode as in the base commit",
-  "why": "the source's current environment records, from its later private environment adoption, are not published with this export; these files are the environment as published with 2.0.0",
+  "why": "the source's current environment records, from its later private environment adoptions, are not published with this export; these files are the environment as published with 2.0.0 and kept by 2.1.0. AGENTS.md is the 2.1.0 export's: the source's differs only by a bullet naming the unpublished model (MODEL.md)",
   "files": [
-   {
-    "path": ".gitignore",
-    "mode": "100644",
-    "git_blob": "ed8948371d794d80c48b58e30dbabc8783e3b669",
-    "sha256": "0fcf670c97df8c6e25d2a40a10a87fa4ee2e5b920145fcea86657da368ed6a8c"
-   },
-   {
-    "path": "hunsu-judgments.json",
-    "mode": "100644",
-    "git_blob": "b6f9bfdffea981ff961b3c4356276743fd438a3b",
-    "sha256": "2eb2d7d5677bf3132f88665889101e274ddc4260c757cde6e099e2cbb04a0022"
-   },
    {
     "path": "hunsu.json",
     "mode": "100644",
@@ -215,6 +203,24 @@
     "mode": "100644",
     "git_blob": "59271fe0e3e67e721af60254cb2087f51036de3a",
     "sha256": "65e81f34c95469477f2e43384ae93176c66db132333aee555ab2d18da9b030ce"
+   },
+   {
+    "path": "hunsu-judgments.json",
+    "mode": "100644",
+    "git_blob": "b6f9bfdffea981ff961b3c4356276743fd438a3b",
+    "sha256": "2eb2d7d5677bf3132f88665889101e274ddc4260c757cde6e099e2cbb04a0022"
+   },
+   {
+    "path": ".gitignore",
+    "mode": "100644",
+    "git_blob": "ed8948371d794d80c48b58e30dbabc8783e3b669",
+    "sha256": "0fcf670c97df8c6e25d2a40a10a87fa4ee2e5b920145fcea86657da368ed6a8c"
+   },
+   {
+    "path": "AGENTS.md",
+    "mode": "100644",
+    "git_blob": "83d2f48d6af22e271b4059d5d5e25523301f48f3",
+    "sha256": "752055179fd6c4e2504414091f358b377b5b6e2967c37ca9e675a9ce741b53ee"
    }
   ]
  },
@@ -239,8 +245,22 @@
    "plugin/hooks/stop.py",
    "plugin/jokbo.py",
    "plugin/plugin.json",
+   "plugin/pluginroot.py",
    "plugin/skills/read/SKILL.md"
   ]
+ },
+ "vendored": {
+  "plugin/pluginroot.py": "the plugin family's shared {plugin:NAME} resolver, byte-identical to the copy its home (dwitbuk) released; never edited here"
+ },
+ "not_published": {
+  "files": [
+   "MODEL.md",
+   "mangsang/",
+   "check_model.py",
+   "test_model_check.py"
+  ],
+  "is": "jokbo's own mangsang model and its acceptance: development support that nothing in plugin/ reads",
+  "why": "its acceptance takes the engine hunsu.lock.json pins, and the lock this export preserves pins mangsang 1.19.3, which cannot read the model; published, it would fail where that pin is installed"
  },
  "records": {
   "scope": "final closed public records only; local raw evidence, locks, transcripts and session pointers excluded",
@@ -514,21 +534,21 @@
   }
  },
  "records_carried": {
-  "from": "9333afe0b95f2effddd54214b11fdc3800540a8a",
+  "from": "721bb2c267702036022b7298d8170546e83d5108",
   "count": 32,
   "rule": "every record path has the same git blob and mode as in the base commit; the derivation table above is the 2.0.0 export's, unchanged; no record written after the 2.0.0 export is shipped"
  },
  "review": {
-  "source": "the source changes since 2.0.0 were read by declared verifiers in private runs run-20261105-083249-498a, run-20261105-090907-634c and run-20261105-092949-a61c and by independent reviewers outside this repository; their verdicts and records stay outside this payload",
-  "projection": "checked in the private run run-20261105-095916-4141, task public-projection-2 (it corrects an unpublished first draft that carried the source's current environment records); its record stays outside this payload"
+  "source": "the source changes since 2.1.0 were read by the declared verifier in private runs after the 2.1.0 export, the latest run-20261106-063735-8ea7, and by late eyes outside this repository; their verdicts and records stay outside this payload",
+  "projection": "checked in the private run run-20261106-063735-8ea7, task publish; its record stays outside this payload"
  },
- "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are preserved unchanged from the 2.0.0 export: the environment as locked then from released 1.x engines (the lock pins jokbo 1.8.1). They are not the environment this 2.1.0 source was developed or checked in; that environment is not published with this export",
+ "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are preserved unchanged from the 2.0.0 export (2.1.0 kept them): the environment as locked then from released 1.x engines (the lock pins jokbo 1.8.1 and mangsang 1.19.3). They are not the environment this 2.2.0 source was developed or checked in; that environment is not published with this export",
  "not_claimed": [
   "a GitHub release or tag: none is made with this export",
   "an installation, a plugin cache update, or a consumer's pin, lock or adoption",
   "a person's review of the 3 resolutions marked reviewed: false in hunsu.json; no person has read them",
   "disposal of the objections and non-claims the shipped reviews hold open, or of the private reviews written after 2.0.0",
-  "a live installation from ./plugin on Claude Code or Codex: the payload was checked statically, by Claude's manifest validator and by isolated fixtures",
+  "a live installation from ./plugin on Claude Code or Codex, or a live host session resolving {plugin:NAME}: the payload and the resolver were checked by isolated fixtures",
   "the private self-hosting records written after the 2.0.0 export: they are not shipped",
   "that the root environment files describe the environment this source was developed in: they are the 2.0.0 export's, preserved"
  ]

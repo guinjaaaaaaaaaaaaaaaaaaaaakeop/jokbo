@@ -67,13 +67,32 @@ hunsu.lock.json, or in hunsu.json (the project's own declaration, on top):
 }
 ```
 
-Placeholders: `{plugin:NAME}` (that plugin's root here: a hunsu.local.json link, or a directory marketplace, followed
-through its catalog (.claude-plugin/marketplace.json, then .agents/plugins/marketplace.json) to the plugin's local source
-directory inside it, else through <link>/<NAME>'s own catalog (one level), else <link>/<NAME>, else the link itself; else its install), `{target}`,
-`{path}`, `{since}`; for `hands`, `{paths}` (one argument per path) and `{after}` (when the session's last call left the
-tree, ISO UTC). A `hands` read prints a JSON object from path to whose hands its records say changed it (`{"src/a.ts":
-"the implementer of build (run-…)"}`), for the paths it knows; nothing else of it is shown. jokbo runs the read and prints its output under the plugin's name; a plugin that is not here, or a
-read that fails, is said. jokbo knows no product.
+Placeholders: `{plugin:NAME}` is found by the family's shared resolver (`pluginroot.py`, vendored byte-identical
+in the plugins that resolve `{plugin:NAME}`) for the host jokbo runs on — Codex when `AGENT_HOST` is `codex`,
+else Claude Code. A hunsu.local.json link comes first, relative to the project and followed through its catalog
+(.claude-plugin/marketplace.json, then .agents/plugins/marketplace.json) to the plugin's local source directory
+inside it, else `<link>/<NAME>`'s own catalog, else `<link>/<NAME>`, else the link itself. The link's catalog and
+`<link>/<NAME>`'s own catalog are read only when they lie inside the link's folder by realpath; the child's catalog
+must also lie inside the child's folder. A `<link>/<NAME>` child that leaves the folder by symlink, directly or
+through another, is taken as named, its catalog unread. The same folder rule holds for a Claude Code directory
+marketplace. A link whose directory
+is missing stops the read, with no fallback. Otherwise it uses the marketplace hunsu.json declares (a hunsu.local.json
+`dev` trial overriding) on that host only: for Claude Code, a directory marketplace used in place, else its
+installed_plugins.json entry with an existing installPath (local, then project for this project, then user scope);
+for Codex, an enabled config.toml `plugins."NAME@MARKET"` entry and a copy in its plugin cache, the one with
+hunsu.json's pinned version when there are several. Several copies with no single one at the pin give no root:
+the read is not run, with the resolver's reason naming the copies. A plugin hunsu.json does not declare is found only when exactly
+one marketplace has it installed on that host; never another host's or marketplace's copy. A copy whose version
+differs from the pin is still used, and the read says so, for example: "hunsu.json declares probe 1.0.0; the codex
+copy at /path/to/probe is 1.5.0".
+
+Other placeholders: `{target}`, `{path}`, `{since}`; for `hands`, `{paths}` (one argument per path) and `{after}`
+(when the session's last call left the tree, ISO UTC). A `hands` read prints a JSON object from path to whose hands
+its records say changed it (`{"src/a.ts": "the implementer of build (run-…)"}`), for the paths it knows; nothing
+else of it is shown. Only stdout is used. A not-found plugin (with the resolver's reason), a placeholder with no
+value, or a read that cannot run, times out or exits other than 0 or 1 with nothing on stdout is said — and a version
+note too — for `file`, `since` and `decision` reads only; `map`, `note` and `hands` reads keep part of their output
+and pass over failures and notes in silence. jokbo knows no product.
 
 **Ranking** is by shared words (BM25 over identifiers split at case and underscores, and Hangul/CJK words) — the same
 answer every time, confirmed by nobody, and every output says so. A section that names the file outright, and documents
@@ -228,6 +247,7 @@ of the project, e.g. `["content/"]` for a site's posts.
 
 ## Limits
 
+- The resolver reads each host's install records, not what a live host session actually loaded.
 - Ranking finds shared words, not meaning: a section that speaks of a file only in other words is missed — and a
   question asked in other words than the documents' ("why does the site rebuild pages?" against "읽기 경로 — 페이지를
   어떻게 만드나") gets nothing at the prompt. Whether that

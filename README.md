@@ -65,6 +65,13 @@ from 3.9 to 3.11, the floor `.codex-plugin/plugin.json` had declared since 1.0.0
 2.1.0 is minor: it moved the installable payload into `plugin/` (catalogs select `./plugin`) with the
 installed interfaces unchanged.
 
+2.2.0 is minor: `{plugin:NAME}` in a declared read is resolved by the plugin family's host-aware resolver, vendored
+byte-identical as `plugin/pluginroot.py` — the host the process runs on (Codex when `AGENT_HOST` is `codex`, else
+Claude Code) and the marketplace hunsu.json declares, never another host's copy or another marketplace's plugin of that
+name — and a `file`, `since` or `decision` read says, in a line of its own, when the copy it ran differs from
+hunsu.json's pinned version. A read whose plugin is installed only for the other host, or only from a marketplace other
+than the declared one, is not run and says why; 2.1.0 ran whatever install of that name Claude Code's records held.
+
 ### Release and adoption
 
 Documentation and shared instruction edits also need a patch bump when interfaces stay unchanged.
