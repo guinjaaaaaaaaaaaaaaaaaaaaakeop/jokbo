@@ -1,9 +1,12 @@
 """SessionStart — the map: what this project holds and how to ask (frozen for the session), and, in brief, what changed
 since this machine last looked (marked when an answer ends, so a session's own work is not news). Starts the session's
-state over: a file told before a restart is told again (1.2.0 carried 1.1.0's list over a restart and never spoke of the
+state over on every source except "resume" (which keeps start, shown, told, quoted, noted, searched) and "compact"
+(which keeps start, working, background, async-agents): a file told before a restart is told again (1.2.0 carried 1.1.0's list over a restart and never spoke of the
 files most edited). Also after a compaction — the summary keeps none of the map, and a session in guin-site (10-08 → 10-11)
 compacted four times without it; a sub-agent can still be running then, so its count is kept, and so is where the
-session started (the notes leave out what was committed since). Under hunsu's probe
+session started (the notes leave out what was committed since). A resume keeps the start and all files, lines,
+sections and searches already told: the restored conversation still holds them. It resets process-owned calls and
+agents and takes a new last snapshot. Under hunsu's probe
 (HUNSU_SURVEY=1): its standing text, nothing written."""
 import os
 import sys
@@ -33,7 +36,12 @@ def main():
             jokbo.mark_seen(target)
         elif seen["head"] != head and p.get("source") != "compact":   # a compaction comes mid-answer: what changed is the session's own
             lines += jokbo.since_report(target, seen["head"], brief=True)
-        st = jokbo.remember(target, p.get("session_id"), reset=True, keep=("start", "working", "background", "async-agents") if p.get("source") == "compact" else ())
+        keep = ()
+        if p.get("source") == "compact":
+            keep = ("start", "working", "background", "async-agents")
+        elif p.get("source") == "resume":
+            keep = ("start", "shown", "told", "quoted", "noted", "searched")
+        st = jokbo.remember(target, p.get("session_id"), reset=True, keep=keep)
         if not st.get("start") and head:   # where this session started: what is committed after it is the session's own news
             with jokbo.state_lock(jokbo.session_path(target, p.get("session_id"))):
                 st, path = jokbo.session_state(target, p.get("session_id"))

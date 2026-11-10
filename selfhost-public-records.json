@@ -1,21 +1,19 @@
 {
  "artifact": "selfhost/public-records@1",
- "what": "The jokbo 2.2.0 source exported for publication as one commit on the public main. Runtime, payload, catalog, documentation, test and metadata files are the approved private source commit's exact bytes; the root environment and ignore files (hunsu.json, hunsu.lock.json, hunsu-judgments.json, .gitignore) and AGENTS.md are preserved byte-for-byte from the base, the public 2.1.0 export, and are not the source's current environment or guide; the source's own mangsang model is not published; .chongdae/ and reviews/ hold the self-hosting records published with 2.0.0, carried unchanged. The private self-hosting history the source came from is not an ancestor of this commit, and this commit does not stand in for it.",
+ "what": "The jokbo 2.3.0 source exported for publication as one commit on the public main. Runtime, payload, catalog, documentation, test and metadata files are the approved private source revision's exact bytes; the root environment and ignore files (hunsu.json, hunsu.lock.json, hunsu-judgments.json, .gitignore) and AGENTS.md are preserved byte-for-byte from the base, the public 2.2.0 export, and are not the source's current environment or guide; .chongdae/ and reviews/ hold the self-hosting records published with 2.0.0, carried unchanged. The private development history the source came from is not an ancestor of this commit, and this commit does not stand in for it.",
  "base": {
-  "commit": "721bb2c267702036022b7298d8170546e83d5108",
-  "tree": "a6861166a3619f962704acd9cf04ff267783fdae",
-  "is": "the public main (2.1.0)"
+  "commit": "d347ab1946ce3b10493b2ef00c85a59d0cac56b8",
+  "tree": "c732d6a1aa0a4073aab63130aa8206939f89a602",
+  "is": "the public main (2.2.0)"
  },
  "previous_export": {
-  "commit": "721bb2c267702036022b7298d8170546e83d5108",
-  "manifest_git_blob": "c7e52cc6fce3aa9ecb91f19a6076eb53b451ac09",
-  "is": "the 2.1.0 export's manifest, kept in this repository's history"
+  "commit": "d347ab1946ce3b10493b2ef00c85a59d0cac56b8",
+  "manifest_git_blob": "d8e4398f75034a3ac923daa9e486007023b1d326",
+  "is": "the 2.2.0 export's manifest, kept in this repository's history; it and the earlier exports' manifests hold the derivation of the carried records"
  },
  "source": {
-  "commit": "8d7f5f5ae9d8d1338edbd3d5141e7ecfd98a8035",
-  "tree": "a16247ef40f55fbb0fd64233d938f7c6bdb2d5c2",
-  "is": "the approved private source commit; not published, not an ancestor",
-  "rule": "each file below has the same git blob and mode as in the source commit",
+  "is": "the approved private source revision; not published, not an ancestor",
+  "rule": "each file below has the same git blob and mode as in the source revision",
   "files": [
    {
     "path": ".agents/plugins/marketplace.json",
@@ -26,8 +24,8 @@
    {
     "path": ".claude-plugin/marketplace.json",
     "mode": "100644",
-    "git_blob": "23fcf3aa6b902edaea640702c050bc3837f9d9e9",
-    "sha256": "01f7e4977ffe8d2c01fbab8b007e7f3f19571185383154334390c1244fd37f79"
+    "git_blob": "03842d877a730c46af4a5bd89660196458291ef1",
+    "sha256": "4c0736bd615eec58ff3dd0d1aba83af2880125d8aef7d4d2e6c7555fdcf1d529"
    },
    {
     "path": ".claude/settings.json",
@@ -50,8 +48,8 @@
    {
     "path": "README.md",
     "mode": "100644",
-    "git_blob": "65c1f881336c3d5101c6adf5c9b7522defdfd3e3",
-    "sha256": "3e1efa4995f6efc5fd7b6e8734e6d76f28361833faaa81a1211a6f8fccc607f0"
+    "git_blob": "c1fed3c430ad5449e695c67d35aaede5ed8d3024",
+    "sha256": "628be2bf09a6a6a4aa10a4e8bc9f3c400366632bc8edddd5ed6cc4498bcb951f"
    },
    {
     "path": "jokbo.py",
@@ -62,14 +60,14 @@
    {
     "path": "plugin/.claude-plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "b05272b7a3874a77addec3d073efd176b7aa450b",
-    "sha256": "c49a78803caa095f53628981867fb09fbf9b36cfaf5c4468d43417c947a4a9df"
+    "git_blob": "c2f39076706ddb03a01caacac6e7db1c9b8a64e9",
+    "sha256": "db8b7d3022b474d8062fdc8db01a338d2a3e36faa1d9a00dffb6567900bec2c0"
    },
    {
     "path": "plugin/.codex-plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "6bf85288086e03f665ab461c0a3f5789424e08e8",
-    "sha256": "f07bb7b334d403b292dcaa6d6883a7818d5656f2f264992e12ac87d55cfe140c"
+    "git_blob": "037dce42dff9ca9273557c15b84d31fca03c239e",
+    "sha256": "1691ab410db6a3144a06e36944adf6240d9890ef19b0bac8231d50340a18a842"
    },
    {
     "path": "plugin/LICENSE",
@@ -80,8 +78,8 @@
    {
     "path": "plugin/README.md",
     "mode": "100644",
-    "git_blob": "6d3e4dde78d3cb7027dcc109a6b6d405c5ece8f3",
-    "sha256": "208fd33112d3c5deb6f92f20b7a0e858d5fcf1371c81e51226911fe700acb1b1"
+    "git_blob": "78f883a199bde4d55375552724db89e2ef3786af",
+    "sha256": "224f88ba43614dd2dfca9f08d76a66b76725d78e20943308ac70f3d190cbf5e9"
    },
    {
     "path": "plugin/commands/file.md",
@@ -140,8 +138,8 @@
    {
     "path": "plugin/hooks/session_start.py",
     "mode": "100644",
-    "git_blob": "648758ce0b807611612aed80b2553f11d24ac34a",
-    "sha256": "67d8cb82dc5d1c9e94a687dcfb613d931140dec112ba63a6cca85a3fd28e18fb"
+    "git_blob": "7db3d9c6f9d5d46a288941c9c264e5132bc4f912",
+    "sha256": "39435ab59cdb61bff75820c8b5ec887e1a6aa603e4a5dd8ec5f65a07ddf9134a"
    },
    {
     "path": "plugin/hooks/stop.py",
@@ -152,14 +150,14 @@
    {
     "path": "plugin/jokbo.py",
     "mode": "100644",
-    "git_blob": "40a5739b4a450fcf5cb5dd60b47dd52809327e2b",
-    "sha256": "c30dfb5a46770625fa27599bba734bd18f9f44a48740579d94a032f57af21768"
+    "git_blob": "050536c0b1907c20dd1d05f0b7b2acd0f577a28c",
+    "sha256": "4f3d569ac6f24241d8ab16401dda4b71ba9d9c2cbbd8e798e77790676e06e060"
    },
    {
     "path": "plugin/plugin.json",
     "mode": "100644",
-    "git_blob": "0ad373e623dc361b6436adaa942abfd328bc5c35",
-    "sha256": "e698860090058bf79459dbe908333ce33066ee2cf7ff40904dd487b314b720c7"
+    "git_blob": "4042b0f9c309d3a695299981b2575e43099a504a",
+    "sha256": "770c579c562877b38f72b89a6871cfe39d8697e059f7fba56e87a683c5c126fa"
    },
    {
     "path": "plugin/pluginroot.py",
@@ -176,21 +174,21 @@
    {
     "path": "test_jokbo.py",
     "mode": "100644",
-    "git_blob": "339f57fd28c3a34ece328dd994163ef321f4d619",
-    "sha256": "76ea51fce65913435ee0e8e0eab825a51d046e0a4a43156ea732074ff3746f33"
+    "git_blob": "9d2e9cc2732f55c5e473fdd4c7c6bfddcd9a7096",
+    "sha256": "7d850bb1400781773d2573ec376b146379fd1a5e9ac6ad06b0b104ded1e8a29e"
    },
    {
     "path": "test_packaging.py",
     "mode": "100644",
-    "git_blob": "5546ac5e9832a16f1a8c9bb53b2935ba5208490b",
-    "sha256": "132c0212c2b8d8cfbf15194ced2665d506d7279a2085092ef79402251db0ad07"
+    "git_blob": "2b0406972b0c4edd66e58ecc9d603a9ab44dcb2d",
+    "sha256": "1f14cb0c62560cd871325d4246db45d5d1514d62852af93d0d86b96c3a5a2623"
    }
   ]
  },
  "preserved_from_base": {
-  "commit": "721bb2c267702036022b7298d8170546e83d5108",
+  "commit": "d347ab1946ce3b10493b2ef00c85a59d0cac56b8",
   "rule": "each file below has the same git blob and mode as in the base commit",
-  "why": "the source's current environment records, from its later private environment adoptions, are not published with this export; these files are the environment as published with 2.0.0 and kept by 2.1.0. AGENTS.md is the 2.1.0 export's: the source's differs only by a bullet naming the unpublished model (MODEL.md)",
+  "why": "the source's current environment records are not published with this export; these files are the environment as published with 2.0.0 and kept since. AGENTS.md is the earlier exports' public guide",
   "files": [
    {
     "path": "hunsu.json",
@@ -250,306 +248,22 @@
   ]
  },
  "vendored": {
-  "plugin/pluginroot.py": "the plugin family's shared {plugin:NAME} resolver, byte-identical to the copy its home (dwitbuk) released; never edited here"
+  "plugin/pluginroot.py": "the plugin family's shared {plugin:NAME} resolver, byte-identical to the copy its home (dwitbuk) released; never edited here, unchanged since 2.2.0"
  },
- "not_published": {
-  "files": [
-   "MODEL.md",
-   "mangsang/",
-   "check_model.py",
-   "test_model_check.py"
-  ],
-  "is": "jokbo's own mangsang model and its acceptance: development support that nothing in plugin/ reads",
-  "why": "its acceptance takes the engine hunsu.lock.json pins, and the lock this export preserves pins mangsang 1.19.3, which cannot read the model; published, it would fail where that pin is installed"
- },
- "records": {
-  "scope": "final closed public records only; local raw evidence, locks, transcripts and session pointers excluded",
-  "rule": "31 files byte-identical to the private originals; 1 derived by one exact replacement of an absolute machine path in one JSON string",
-  "files": [
-   {
-    "path": ".chongdae/.gitignore",
-    "original_sha256": "aafbe4ac09e3ce380be4f87c0cbab19e3601a71bc02a551a8aa6c48576dc0f3b",
-    "public_sha256": "aafbe4ac09e3ce380be4f87c0cbab19e3601a71bc02a551a8aa6c48576dc0f3b",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/asked/environment.newbie.json",
-    "original_sha256": "2b9c3bb9162e0c70c55d07ab8cf85b7e17ced119a7be39476059bfe03e8222f2",
-    "public_sha256": "2b9c3bb9162e0c70c55d07ab8cf85b7e17ced119a7be39476059bfe03e8222f2",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/asked/environment.verify.json",
-    "original_sha256": "1eba375fc828af7f7ec61b9385a5fcb5aea4694ab605390bf6b78a7048779501",
-    "public_sha256": "1eba375fc828af7f7ec61b9385a5fcb5aea4694ab605390bf6b78a7048779501",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/plan.json",
-    "original_sha256": "23df88faec63449d100ea92210793fcf446fbce6d25bdc63375ad3ce7df185ca",
-    "public_sha256": "23df88faec63449d100ea92210793fcf446fbce6d25bdc63375ad3ce7df185ca",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/state.json",
-    "original_sha256": "c3b706878a830f96a35c5881b8ad97d9ac6c471c4590fa1cad50d2895d17f941",
-    "public_sha256": "c3b706878a830f96a35c5881b8ad97d9ac6c471c4590fa1cad50d2895d17f941",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/tasks/env.json",
-    "original_sha256": "82a8377b7c411e89480011b058ed74839795dd7f69aff5190fab6d6c91fef1c9",
-    "public_sha256": "82a8377b7c411e89480011b058ed74839795dd7f69aff5190fab6d6c91fef1c9",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/tasks/environment.json",
-    "original_sha256": "09da378cb7fcd57a62aa8772756f7ed6c4f70da50f0e3328d2a42e68f1275367",
-    "public_sha256": "f3b3595b36b4def0ddd15e060275d67a2b89fca0c9fb738846718bf951e6f739",
-    "derivation": "one exact machine-path replacement in one JSON string",
-    "changed_json_leaves": [
-     [
-      "stages",
-      "newbie",
-      "response",
-      "tried",
-      "1",
-      "command"
-     ]
-    ]
-   },
-   {
-    "path": ".chongdae/run-20261030-063525-2d81/tasks/provenance.json",
-    "original_sha256": "5f2b8b6fa6c2db583266919265032e725c6d584dc8e21a327036e729d2216235",
-    "public_sha256": "5f2b8b6fa6c2db583266919265032e725c6d584dc8e21a327036e729d2216235",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/asked/containment.verify.json",
-    "original_sha256": "bf971b500f40982c5cd02a3b102421dbf5c737201f7dc2d49956015788b736f2",
-    "public_sha256": "bf971b500f40982c5cd02a3b102421dbf5c737201f7dc2d49956015788b736f2",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/asked/prior-adoption.verify.json",
-    "original_sha256": "85c6cef52633eb83089f07092f1c26818c03da4f6bfda0235b848de08826c49e",
-    "public_sha256": "85c6cef52633eb83089f07092f1c26818c03da4f6bfda0235b848de08826c49e",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/asked/record-hygiene.verify.json",
-    "original_sha256": "5835e160d64f6a12328fb5eda8149fc3108d02ca58235ce964ea15abb5403602",
-    "public_sha256": "5835e160d64f6a12328fb5eda8149fc3108d02ca58235ce964ea15abb5403602",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/asked/version-policy.verify.json",
-    "original_sha256": "6c4db7ae7f4557b3062f9d006058dae7c352cf5d6462ca61b8bee15d091ddf54",
-    "public_sha256": "6c4db7ae7f4557b3062f9d006058dae7c352cf5d6462ca61b8bee15d091ddf54",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/plan.json",
-    "original_sha256": "45ee0530b242c8b50f55cdf6027d8f879e4f6961744edf5ba583032ebf0149e8",
-    "public_sha256": "45ee0530b242c8b50f55cdf6027d8f879e4f6961744edf5ba583032ebf0149e8",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/state.json",
-    "original_sha256": "1f93fe25293c25c17b04ddb432fb70d5224b624fbff34d04252b9df7941f38cc",
-    "public_sha256": "1f93fe25293c25c17b04ddb432fb70d5224b624fbff34d04252b9df7941f38cc",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/tasks/containment.json",
-    "original_sha256": "3980d2230a0c6b375a2765a78104c6f81d79b7b0ba189c3ae609b3de1c9b93f7",
-    "public_sha256": "3980d2230a0c6b375a2765a78104c6f81d79b7b0ba189c3ae609b3de1c9b93f7",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/tasks/prior-adoption.json",
-    "original_sha256": "12caadacc78b73315b41f09df7bc1b0441d7441e58e1d39f4441303e39c07f56",
-    "public_sha256": "12caadacc78b73315b41f09df7bc1b0441d7441e58e1d39f4441303e39c07f56",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/tasks/record-hygiene.json",
-    "original_sha256": "f56d1f836ee294b3576b59187201a04413af1ff229afa0d5e152cbf56663cbf9",
-    "public_sha256": "f56d1f836ee294b3576b59187201a04413af1ff229afa0d5e152cbf56663cbf9",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-080105-b347/tasks/version-policy.json",
-    "original_sha256": "f8d13a0e430dcbb4e31c620b3c751314f19bdf7893daa985a2364abba34736ee",
-    "public_sha256": "f8d13a0e430dcbb4e31c620b3c751314f19bdf7893daa985a2364abba34736ee",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/asked/adoption-boundary.verify.json",
-    "original_sha256": "03ebf8d5493c5ba3cb563b89e2064a1b0351fe76f9783b6674bb84cf39174970",
-    "public_sha256": "03ebf8d5493c5ba3cb563b89e2064a1b0351fe76f9783b6674bb84cf39174970",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/asked/target-resolution.verify.json",
-    "original_sha256": "ede6a7c38d51f1335df3843083b6957e124aae35fb9459660e55258663d796be",
-    "public_sha256": "ede6a7c38d51f1335df3843083b6957e124aae35fb9459660e55258663d796be",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/plan.json",
-    "original_sha256": "d657207aa2ec36e0b3e75c51fb3524e1d8ef704ca41e8ae428aa581ccd184598",
-    "public_sha256": "d657207aa2ec36e0b3e75c51fb3524e1d8ef704ca41e8ae428aa581ccd184598",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/state.json",
-    "original_sha256": "67dc2639e14e7d133e9ff7c8e999584ffeda221c98721ff44db3401dbd2a1cc8",
-    "public_sha256": "67dc2639e14e7d133e9ff7c8e999584ffeda221c98721ff44db3401dbd2a1cc8",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/tasks/adoption-boundary.json",
-    "original_sha256": "1818b5b6d73483433bfdbd03e02f6a1cff280e58750b8c84f5dba28afd168eab",
-    "public_sha256": "1818b5b6d73483433bfdbd03e02f6a1cff280e58750b8c84f5dba28afd168eab",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-083444-dd10/tasks/target-resolution.json",
-    "original_sha256": "3717aaf145d66da0e02cab791a12b73514f26f9c860ef3c6782ceea5a3b554af",
-    "public_sha256": "3717aaf145d66da0e02cab791a12b73514f26f9c860ef3c6782ceea5a3b554af",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-094043-1de2/asked/v2-candidate.verify.json",
-    "original_sha256": "8f97e39399fb54047693b261c10a38670daa4157adf622ca2e0f5401d97de8d1",
-    "public_sha256": "8f97e39399fb54047693b261c10a38670daa4157adf622ca2e0f5401d97de8d1",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-094043-1de2/plan.json",
-    "original_sha256": "075b8719b989a461993363fc3c536ff48c74291c3cf592ddaaa0362ba8f4af8f",
-    "public_sha256": "075b8719b989a461993363fc3c536ff48c74291c3cf592ddaaa0362ba8f4af8f",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-094043-1de2/state.json",
-    "original_sha256": "9f9d12d99097a4e9f750021b22c93d7e094ab5fb4939a1da2dcbac6de2c26dd6",
-    "public_sha256": "9f9d12d99097a4e9f750021b22c93d7e094ab5fb4939a1da2dcbac6de2c26dd6",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": ".chongdae/run-20261030-094043-1de2/tasks/v2-candidate.json",
-    "original_sha256": "bc33b7a377958405bd514350ce18420c541cdbe6c68780335c569ec71262eca3",
-    "public_sha256": "bc33b7a377958405bd514350ce18420c541cdbe6c68780335c569ec71262eca3",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": "reviews/review-20261030-155017-bab4.json",
-    "original_sha256": "42857f6e477d55b886bf9551495a1f9d051e54f854ed5de70f54ef046e508a0c",
-    "public_sha256": "42857f6e477d55b886bf9551495a1f9d051e54f854ed5de70f54ef046e508a0c",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": "reviews/review-20261030-171225-0c89.json",
-    "original_sha256": "ff0e184f3ccfb7df6d6e84d3ea99caac5f73567025274ef574d2f7355cbd6d41",
-    "public_sha256": "ff0e184f3ccfb7df6d6e84d3ea99caac5f73567025274ef574d2f7355cbd6d41",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": "reviews/review-20261030-173805-0b9b.json",
-    "original_sha256": "9aee78e23e3e07f9491de352f91bf3c6453a350f2d08aef1a0417194e2978543",
-    "public_sha256": "9aee78e23e3e07f9491de352f91bf3c6453a350f2d08aef1a0417194e2978543",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   },
-   {
-    "path": "reviews/review-20261030-184548-2ea1.json",
-    "original_sha256": "646034babcedbdb91cbac4591870bd62ab19da32d2ea45310ea370042dd68265",
-    "public_sha256": "646034babcedbdb91cbac4591870bd62ab19da32d2ea45310ea370042dd68265",
-    "derivation": "byte-identical",
-    "changed_json_leaves": []
-   }
-  ],
-  "replace_the_source_commits_record_paths": [
-   ".chongdae/.gitignore",
-   ".chongdae/run-20261030-063525-2d81/asked/environment.newbie.json",
-   ".chongdae/run-20261030-063525-2d81/asked/environment.verify.json",
-   ".chongdae/run-20261030-063525-2d81/plan.json",
-   ".chongdae/run-20261030-063525-2d81/state.json",
-   ".chongdae/run-20261030-063525-2d81/tasks/env.json",
-   ".chongdae/run-20261030-063525-2d81/tasks/environment.json",
-   ".chongdae/run-20261030-063525-2d81/tasks/provenance.json",
-   ".chongdae/run-20261030-080105-b347/plan.json",
-   ".chongdae/run-20261030-080105-b347/state.json",
-   "reviews/review-20261030-155017-bab4.json"
-  ],
-  "not_shipped": [
-   {
-    "path": ".chongdae/run-20261030-080105-b347/state.json",
-    "why": "the source commit holds this run's initial running state, committed at its init before records stopped being committed; the run's final complete state is shipped instead"
-   }
-  ],
-  "excluded": {
-   "local raw (requests, responses, transcripts, logs, pending, launch locks)": 87,
-   "machine session pointer (.chongdae/sessions, gitignored)": 2,
-   "lock": 1
-  },
-  "retained_by_classification": "the relative references ../.umbrella and ../jokbo.py and the reserved fixture address fixture@example.invalid are kept as written: portable, not a machine or account detail",
-  "derived_text": "the derived record is not the provider's original answer and not an input for validating quotes against it; the original stays private and unchanged",
-  "inputs_sha256": {
-   "derivation": "17a6db30a456587153f5efa69bee24b30e1fb76acaae5b428d21ee5670a4e545",
-   "record_inventory": "fcee53663e1a349251ca9c1a5a8162749a59a652b077279c5ab2a1b9e3c903fc",
-   "classification": "91d34313200133b8b4915c24824d92aeea53d12e7cfc0a84676c292c8ce917d4",
-   "generator": "5e5aa708da4897429401afb899eefb53e21a154c801553a5863b9925dee18e8b"
-  }
- },
+ "not_published": "development records: the source's private run and review records written after the 2.0.0 export, and the product's own development model and its acceptance, which nothing in plugin/ reads",
  "records_carried": {
-  "from": "721bb2c267702036022b7298d8170546e83d5108",
+  "from": "d347ab1946ce3b10493b2ef00c85a59d0cac56b8",
   "count": 32,
-  "rule": "every record path has the same git blob and mode as in the base commit; the derivation table above is the 2.0.0 export's, unchanged; no record written after the 2.0.0 export is shipped"
+  "rule": "every record path has the same git blob and mode as in the base commit; their derivation is the 2.0.0 export's, recorded in the earlier exports' manifests; no record written after the 2.0.0 export is shipped"
  },
- "review": {
-  "source": "the source changes since 2.1.0 were read by the declared verifier in private runs after the 2.1.0 export, the latest run-20261106-063735-8ea7, and by late eyes outside this repository; their verdicts and records stay outside this payload",
-  "projection": "checked in the private run run-20261106-063735-8ea7, task publish; its record stays outside this payload"
- },
- "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are preserved unchanged from the 2.0.0 export (2.1.0 kept them): the environment as locked then from released 1.x engines (the lock pins jokbo 1.8.1 and mangsang 1.19.3). They are not the environment this 2.2.0 source was developed or checked in; that environment is not published with this export",
+ "review": "the source changes since 2.2.0 were read by the declared verifier in a private run and by late eyes against an explicit claim list; their verdicts and records stay outside this payload",
+ "environment": "hunsu.json, hunsu.lock.json and hunsu-judgments.json are preserved unchanged from the 2.0.0 export: the environment as locked then from released 1.x engines (the lock pins jokbo 1.8.1). They are not the environment this 2.3.0 source was developed or checked in; that environment is not published",
  "not_claimed": [
   "a GitHub release or tag: none is made with this export",
   "an installation, a plugin cache update, or a consumer's pin, lock or adoption",
   "a person's review of the 3 resolutions marked reviewed: false in hunsu.json; no person has read them",
   "disposal of the objections and non-claims the shipped reviews hold open, or of the private reviews written after 2.0.0",
-  "a live installation from ./plugin on Claude Code or Codex, or a live host session resolving {plugin:NAME}: the payload and the resolver were checked by isolated fixtures",
-  "the private self-hosting records written after the 2.0.0 export: they are not shipped",
+  "a live Claude Code or Codex session: the hooks were checked by running their handlers with fixture payloads, including a resume payload; that a host restores the conversation on resume is the host's, not tested here",
   "that the root environment files describe the environment this source was developed in: they are the 2.0.0 export's, preserved"
  ]
 }

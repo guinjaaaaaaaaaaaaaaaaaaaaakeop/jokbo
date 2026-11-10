@@ -1170,6 +1170,274 @@ print("done", flush=True)
                     proc.communicate()
 
 
+def ctx_of(out):
+    """The additionalContext of a hook's output, "" when it said nothing."""
+    return json.loads(out)["hookSpecificOutput"]["additionalContext"] if out.strip() else ""
+
+
+def test_an_edit_command_is_not_a_question_whatever_it_also_searches():
+    """A sed that fixes a typo, then a grep that checks it, got a FIND line on the fixed word; so did a heredoc script that
+    rewrote README.md followed by a grep checking the edit. A shell command that writes a file inside the project is an
+    edit command: `searched` answers none of its searches and records none of them as answered (the same search run alone
+    afterwards is answered). A command whose only writes leave the project is still a search. What the pre-tool hook
+    counts as the session's own writes is unchanged."""
+    with Repo() as r:
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="jokbo-outside-"))
+        try:
+            edits = [
+                ("sed -i 's/newest first/newest at the top/' plan/PLAN.md && grep -n \"newest at the top\" plan/PLAN.md",
+                 'grep -n "newest at the top" plan/PLAN.md', r.dir),
+                ("echo More. >> plan/PLAN.md; grep -n tags plan/PLAN.md", "grep -n tags plan/PLAN.md", r.dir),
+                ("python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"README.md\"); s = p.read_text()\n"
+                 "p.write_text(s.replace(\"Run\", \"Use\"))\nEOF\ngrep -rn \"Use\" README.md plan", None, r.dir),
+                ("python3 - <<'EOF'\nfrom pathlib import Path\ndef edit(path, old, new):\n    p = Path(path); s = p.read_text(); "
+                 "p.write_text(s.replace(old, new))\nedit(\"plan/PLAN.md\", \"tags\", \"labels\")\nEOF\ngrep -rn tags plan",
+                 "grep -rn tags plan", r.dir),
+                ("cat > plan/NEW.md <<'EOF'\n# New\nEOF\ngrep -rn tags plan", "grep -rn tags plan", r.dir),
+                ("cd plan && sed -i 's/newest first/newest at the top/' PLAN.md && grep -n \"newest at the top\" PLAN.md",
+                 'grep -n "newest at the top" plan/PLAN.md', r.dir),
+            ]
+            for i, (command, alone, cwd) in enumerate(edits):
+                sid = "e%d" % i
+                got = jokbo.searched(r.dir, sid, command, cwd=cwd)
+                assert got == [], ("an edit command is not a question", command, got)
+                if alone:
+                    assert jokbo.searched(r.dir, sid, alone, cwd=r.dir), ("the same search run alone afterwards is answered: "
+                                                                          "the edit command recorded it", command, alone)
+            bash = lambda c, sid: ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Bash",
+                                                               "tool_input": {"command": c}})[1])
+            out = bash(edits[0][0], "eh")
+            assert "where the project speaks of" not in out, ("the hook answers no search of an edit command", out)
+            for i, c in enumerate(("grep -rn tags --include=*.md . 2>/dev/null | head", "grep -rn tags --include=*.md . > /dev/null",
+                                   "grep -rn tags --include=*.md . > %s/hits.txt" % outside)):
+                assert jokbo.searched(r.dir, "o%d" % i, c, cwd=r.dir), ("a write that leaves the project: still a search", c)
+            files = set(jokbo.index(r.dir)["files"])
+            assert jokbo.bash_targets(r.dir, edits[0][0], files) == ["plan/PLAN.md"], "the session's own writes are unchanged"
+            assert jokbo.bash_targets(r.dir, edits[2][0], files) == ["README.md"], "the session's own writes are unchanged"
+        finally:
+            shutil.rmtree(outside, ignore_errors=True)
+
+
+def test_a_heredoc_body_is_data_and_an_inline_program_is_not_a_search():
+    """A heredoc given to cat or to a commit message is data: a grep written inside it is not run. A heredoc given to a
+    shell is a script and its search counts. An inline program (python -c, awk, sed -n) searches nothing the hook can
+    answer."""
+    with Repo() as r:
+        files = set(jokbo.index(r.dir)["files"])
+        t = lambda c: jokbo.history_targets(r.dir, c, files)
+        for data in ("cat <<'EOF'\ngrep -rn \"nightly snapshot\" plan\nEOF", "git commit -q -F - <<'EOF'\ngrep -rn tags plan\nEOF"):
+            assert t(data) == [], ("a heredoc body is data, not commands", data, t(data))
+        assert t("bash <<'EOF'\ngrep -rn tags plan\nEOF") == [("terms", "tags")], "a heredoc fed to a shell is a script"
+        for program in ("python3 -c \"import subprocess; subprocess.run(['grep', '-rn', 'tags', 'plan'])\"",
+                        "awk '/tags/ {print}' plan/PLAN.md", "sed -n '/^## Q-tags/,/^## /p' plan/PLAN.md"):
+            assert t(program) == [], ("an inline program is not a search", program)
+
+
+def test_regex_syntax_is_not_a_word():
+    """A grep pattern's bracket expressions (POSIX classes too), letter or digit escapes with their argument, inline flag
+    groups and quantifier braces are syntax: `^[[:space:]]*-[[:space:]]+tags` searched for tags, not for "space tags"."""
+    cases = [("^[[:space:]]*-[[:space:]]+tags", "tags"), ("tags[[:alpha:]]*", "tags"), ("[[:upper:]]tags", "tags"),
+             ("\\tremoved", "removed"), ("tags\\x20removed", "tags removed"), ("\\Stags", "tags"), ("(tags)\\1", "tags"),
+             ("\\p{L}tags", "tags"), ("(?i)tags", "tags"), ("tags{2,3}", "tags")]
+    wrong = [(p, jokbo.pattern_terms(p), want) for p, want in cases if jokbo.pattern_terms(p) != want]
+    assert not wrong, ("regex syntax is not a word: (pattern, got, want)", wrong)
+    with Repo() as r:
+        files = set(jokbo.index(r.dir)["files"])
+        got = jokbo.history_targets(r.dir, 'grep -rnE "^[[:space:]]*-[[:space:]]+tags" plan', files)
+        assert got == [("terms", "tags")], got
+
+
+def test_the_terms_are_the_searched_words_as_the_command_wrote_them():
+    """A grep for `item-for\\|item-count\\|data-wide-only` was answered on "item count data wide only": identifiers cut
+    into fragments. The terms are runs of word characters joined by single hyphens, whole and in their own case,
+    deduplicated ignoring case, joined by one space; a run counts when it holds a word; no shell-special character enters
+    them, so the printed `find` hint can be pasted."""
+    cases = [("item-for\\|item-count\\|API 목록\\|data-wide-only\\|메뉴 1\\|data-sums",
+              "item-for item-count API 목록 data-wide-only 메뉴 data-sums"),
+             ("MAX_ITEMS\\s*=", "MAX_ITEMS"), ("updatedAt</td>", "updatedAt"), ("at-31", ""),
+             ("tags\\|removed", "tags removed"), ("action", "action"), ("Tags\\|tags\\|TAGS", "Tags")]
+    wrong = [(p, jokbo.pattern_terms(p), want) for p, want in cases if jokbo.pattern_terms(p) != want]
+    assert not wrong, ("the searched words as written: (pattern, got, want)", wrong)
+    with Repo() as r:
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-items — the item list\n\nThe item-count shows on every page; "
+              "data-wide-only marks a column shown on wide screens.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "plan: the item list")
+        out = ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": "w1", "tool_name": "Bash",
+                                           "tool_input": {"command": 'grep -rn "item-count\\|data-wide-only" --include=*.md .'}})[1])
+        assert "where the project speaks of: item-count data-wide-only (" in out, out
+        assert "find item-count data-wide-only`" in out, out
+
+
+def notes_fixture(r, plug):
+    """A declared `note` read through a hunsu.local.json link that says, of every file, the run that last changed it, the
+    concept it realizes and a line naming the file — and a README that names src/feed.ts."""
+    write(os.path.join(plug, "note.py"), "import sys\nrun = open(sys.argv[2]).read().strip()\n"
+          "print('last changed in ' + run + ' (2026-10-11), task feed')\nprint('concept:feed — the front page, newest first')\n"
+          "print('only for ' + sys.argv[1])\n")
+    write(os.path.join(plug, "run.txt"), "run-20260901-000000-0000")
+    write(r.p("hunsu.local.json"), {"links": {"netty": plug}})
+    write(r.p("hunsu.lock.json"), {"reads": {"netty": {"note": ["python3", "{plugin:netty}/note.py", "{path}", os.path.join(plug, "run.txt")]}}})
+    write(r.p("README.md"), r.read("README.md") + "\nThe front page is `src/feed.ts`.\n")
+    r.git("add", "-A")
+    r.git("commit", "-qm", "readme names the feed")
+
+
+def test_a_resumed_session_is_not_told_again_what_it_was_told():
+    """A resume restores the conversation that still holds what jokbo told it: the file read before it says nothing when
+    read again, a line told before it does not come again with another file, and where the session started is kept (a
+    line naming a run the session committed before the resume is still left out). A startup or a clear with the same
+    session id starts over."""
+    with Repo() as r:
+        plug = tempfile.mkdtemp(prefix="jokbo-plugin-")
+        try:
+            notes_fixture(r, plug)
+            start = lambda src: hook("session_start.py", {"cwd": r.dir, "session_id": "r1", "source": src})
+            read = lambda f: ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": "r1", "tool_name": "Read", "tool_input": {"file_path": r.p(f)}})[1])
+            start("startup")
+            write(os.path.join(plug, "run.txt"), "run-20261011-010203-abcd")   # the session's own run, closed after it started
+            write(r.p("src/feed.ts"), r.read("src/feed.ts") + "// newest first\n")
+            r.git("commit", "-qam", "run-20261011-010203-abcd: close — feed comment")
+            feed = read("src/feed.ts")
+            assert "concept:feed" in feed and "last changed in" not in feed, feed
+            start("resume")
+            again = read("src/feed.ts")
+            assert again == "", ("a file told before the resume is not told again after it", again)
+            tags = read("src/tags.ts")
+            assert "only for src/tags.ts" in tags, tags
+            assert "concept:feed" not in tags, ("a line told before the resume does not come again with another file", tags)
+            assert "last changed in" not in tags, ("a resume keeps where the session started", tags)
+            start("startup")
+            assert "concept:feed" in read("src/feed.ts"), "a startup with the same session id starts over"
+            start("clear")
+            assert "concept:feed" in read("src/feed.ts"), "a clear with the same session id starts over"
+        finally:
+            shutil.rmtree(plug, ignore_errors=True)
+
+
+def test_a_resume_answers_no_search_again_and_quotes_no_section_again_but_keeps_the_change_line():
+    """After a resume, a shell search answered before it is not answered again and a section quoted to a prompt before it
+    is not quoted again. What a resume does not keep: the agent count is reset (an unfinished Agent call does not silence
+    the change line), and a commit by another hand between calls is said at the next prompt, once."""
+    with Repo() as r:
+        write(r.p("plan/BACKEND.md"), "# Backend\n\n## Backup\n\nA nightly snapshot goes to the bucket at three in the morning.\n\n"
+              "## Deploy\n\nPush to main and the worker is deployed.\n")
+        r.git("add", "-A"); r.git("commit", "-qm", "backend plan")
+        sid = "r2"
+        bash = lambda c: ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Bash", "tool_input": {"command": c}})[1])
+        ask = lambda q: ctx_of(hook("prompt.py", {"cwd": r.dir, "session_id": sid, "prompt": q})[1])
+        question = "when does the nightly snapshot go to the bucket?"
+        hook("session_start.py", {"cwd": r.dir, "session_id": sid, "source": "startup"})
+        assert "where the project speaks of: tags removed" in bash("grep -rn 'tags\\|removed' ."), "answered before the resume"
+        assert "nightly snapshot" in ask(question), "quoted before the resume"
+        hook("pre_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Agent", "tool_input": {"prompt": "do it"}})
+        assert jokbo.agents_in_flight(r.dir) == 1
+        hook("session_start.py", {"cwd": r.dir, "session_id": sid, "source": "resume"})
+        out = bash("grep -rn 'tags\\|removed' .")
+        assert "where the project speaks of" not in out, ("a search answered before the resume is not answered again", out)
+        out = ask(question)
+        assert "nightly snapshot" not in out, ("a section quoted before the resume is not quoted again", out)
+        assert jokbo.agents_in_flight(r.dir) == 0, "a resume resets the agent count"
+        write(r.p("plan/PLAN.md"), r.read("plan/PLAN.md") + "\n## Q-about\n\nOne page.\n")
+        r.git("commit", "-qam", "owner: about page")
+        out = ask("go on")
+        assert "changed by another hand" in out and "owner: about page" in out, ("the change line still works after a resume", out)
+        assert "changed by another hand" not in ask("go on"), "said once"
+
+
+def engine_fixture(r, base, record=True, with_engine=True):
+    """hunsu.json declares jokbo 9.9.0 from marketplace jm; a copy elsewhere holds jokbo.py (when `with_engine`) and a
+    manifest saying 9.9.0, recorded (when `record`) in the Claude install records. Returns the copy's directory."""
+    write(r.p("hunsu.json"), {"plugins": {"jokbo": {"version": "9.9.0", "marketplace": "jm"}}})
+    copy = os.path.join(base, "installs", "jokbo", "9.9.0")
+    write(os.path.join(copy, ".claude-plugin", "plugin.json"), {"name": "jokbo", "version": "9.9.0"})
+    if with_engine:
+        write(os.path.join(copy, "jokbo.py"), "# the copy the lock pins\n")
+    if record:
+        write(os.path.join(base, "claude-home", "plugins", "installed_plugins.json"),
+              {"version": 2, "plugins": {"jokbo@jm": [{"scope": "user", "installPath": copy}]}})
+    return copy.replace(os.sep, "/")
+
+
+def engine_hints(r, sid):
+    """Every hint that spells out the engine, as the hooks (subprocesses with os.environ) and prompt_report give them:
+    {name: text}."""
+    out = {"map": ctx_of(hook("session_start.py", {"cwd": r.dir, "session_id": sid, "source": "startup"})[1])}
+    out["more"] = ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Read",
+                                               "tool_input": {"file_path": r.p("src/feed.ts")}})[1])
+    bash = lambda c: ctx_of(hook("post_tool.py", {"cwd": r.dir, "session_id": sid, "tool_name": "Bash", "tool_input": {"command": c}})[1])
+    out["terms"] = bash("grep -rn tags --include=*.md .")
+    out["path"] = bash("git log -3 -- src/tags.ts")
+    out["prompt"] = "\n".join(jokbo.prompt_report(r.dir, "when does the nightly snapshot go to the bucket?")[0])
+    return out
+
+
+def engine_repo(r):
+    """The Repo with what each hint needs: a README naming src/feed.ts (a note's `more:`), a backup section (a prompt's
+    quote), a repository inside the workspace (the map's nested line)."""
+    write(r.p("README.md"), r.read("README.md") + "\nThe front page is `src/feed.ts`.\n")
+    write(r.p("plan/BACKEND.md"), "# Backend\n\n## Storage\n\nDrafts are kept in the database; nothing is published until the owner "
+          "presses publish.\n\n## Backup\n\nA nightly snapshot goes to the bucket at three in the morning.\n\n## Deploy\n\nPush to main "
+          "and the worker is deployed.\n")
+    write(r.p(".gitignore"), "/engine/\n")
+    r.git("add", "-A"); r.git("commit", "-qm", "readme names the feed; backend plan")
+    eng = r.p("engine")
+    os.makedirs(eng)
+    subprocess.run(["git", "init", "-q"], cwd=eng, check=True)
+    write(os.path.join(eng, "docs", "contract.md"), "# Contract\n\nA rule.\n")
+    subprocess.run(["git", "add", "-A"], cwd=eng, check=True)
+
+
+def test_the_hints_name_the_engine_the_lock_resolves_not_the_loaded_copy():
+    """A session that loaded an older copy than the one the project's lock now pins was pointed at the old copy by every
+    hint that spells out the engine. The path is the jokbo.py in the root the resolver gives for jokbo for this project and
+    host, whatever its version note: the map's ask line and nested line, a note's `more:`, both search answer headers and
+    the prompt quote header."""
+    loaded = os.path.join(PLUGIN, "jokbo.py").replace(os.sep, "/")
+    with Repo() as r, pinned_host("claude-code") as base:
+        engine_repo(r)
+        copy = engine_fixture(r, base)
+        want = '"%s/jokbo.py"' % copy
+        hints = engine_hints(r, "k1")
+        assert "repositories inside" in hints["map"] and "more: `" in hints["more"] and "find tags" in hints["terms"] \
+            and "file src/tags.ts" in hints["path"] and "find WORDS" in hints["prompt"], hints
+        for name, text in hints.items():
+            assert want in text, ("the %s hint names the engine the lock resolves" % name, want, text)
+            assert loaded not in text, ("the %s hint does not name the loaded copy" % name, text)
+        nested = next(l for l in hints["map"].split("\n") if "repositories inside" in l)
+        assert want in nested, nested
+        assert jokbo.engine_path(r.dir) == copy + "/jokbo.py", jokbo.engine_path(r.dir)
+
+
+def test_a_linked_engine_is_named_and_without_a_resolved_engine_the_loaded_copy_is():
+    """A hunsu.local.json link to a directory holding jokbo.py makes the hints name it. With no install record, with
+    nothing declared or installed, or with a resolved root that holds no jokbo.py, the hints name the loaded copy, as
+    before."""
+    loaded = os.path.join(PLUGIN, "jokbo.py").replace(os.sep, "/")
+    with Repo() as r, pinned_host("claude-code") as base:
+        engine_repo(r)
+        linked = os.path.join(base, "linked")
+        write(os.path.join(linked, "jokbo.py"), "# a local checkout\n")
+        write(r.p("hunsu.local.json"), {"links": {"jokbo": linked}})
+        want = '"%s/jokbo.py"' % linked.replace(os.sep, "/")
+        for name, text in engine_hints(r, "l1").items():
+            assert want in text and loaded not in text, ("the %s hint names the linked engine" % name, want, text)
+        assert jokbo.engine_path(r.dir) == linked.replace(os.sep, "/") + "/jokbo.py", jokbo.engine_path(r.dir)
+        os.remove(r.p("hunsu.local.json"))
+        cases = [("no install record", dict(record=False)), ("a root without jokbo.py", dict(with_engine=False))]
+        for i, (case, kw) in enumerate(cases):
+            shutil.rmtree(os.path.join(base, "installs"), ignore_errors=True)
+            shutil.rmtree(os.path.join(base, "claude-home", "plugins"), ignore_errors=True)
+            copy = engine_fixture(r, base, **kw)
+            for name, text in engine_hints(r, "f%d" % i).items():
+                assert '"%s"' % loaded in text and copy not in text, (case, "the %s hint names the loaded copy" % name, text)
+            assert jokbo.engine_path(r.dir) == jokbo.engine_path(), (case, jokbo.engine_path(r.dir))
+        os.remove(r.p("hunsu.json"))
+        shutil.rmtree(os.path.join(base, "claude-home", "plugins"), ignore_errors=True)
+        for name, text in engine_hints(r, "f9").items():
+            assert '"%s"' % loaded in text, ("nothing declared or installed: the %s hint names the loaded copy" % name, text)
+        assert jokbo.engine_path(r.dir) == jokbo.engine_path()
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

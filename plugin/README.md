@@ -167,6 +167,7 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   specs). Then, in brief, what changed since this machine
   last looked. Frozen for the session; said again after a compaction (the summary keeps none of it) — without the
   "what changed" part then: a compaction comes mid-answer, and what was committed since is the session's own.
+  A resumed session keeps its prior notices and starting point; startup and clear restart them.
 - **UserPromptSubmit — what the project already says.** When a prompt asks about something the documents say, up to
   three of their sentences, quoted, with section and age, before the session reads the prompt — the moment a question
   arises (guin-site 10-08 → 10-11: about 70 prompts, the reader never asked; the session grepped or answered from memory).
@@ -200,7 +201,10 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   before pipes: `grep -E "a|b"` is one pattern); a grep through code only (`src/`) is a code search and is not answered
   (guin-site 10-12: eleven such answers, none cited), the host's Grep tool: what the documents say of that file, or where the project speaks of
   those words (two sections, quoted, and for words the commit whose subject says most) — once per target per session,
-  two per command. A command that cannot be a search loads nothing. A grep after a pipe filters output and searches nothing; a pattern with no words (`at-31`) is left
+  two per command. A command that writes inside the project, including a new file, answers no search and records none
+  as answered; writes outside the project do not suppress searches. Heredoc bodies are data unless fed to a shell;
+  inline programs are not searches. Regex syntax is dropped from terms, keeping searched words whole in their written
+  case, including hyphenated names. A command that cannot be a search loads nothing. A grep after a pipe filters output and searches nothing; a pattern with no words (`at-31`) is left
   to grep. (guin-site 10-10: `git log -- wrangler.worker.build.jsonc` to learn why the file exists; the plan's sentence
   and the commit that say so come back.)
 - **PreToolUse — a file written without being read** gets the same line (it arrives with the write's result).
@@ -222,7 +226,12 @@ work relates to it (Devin's knowledge triggers, Cursor's agent-requested rules) 
   (its call answers at once, `isAsync`) runs until the `<task-notification>` naming the call (sagoforce 10-26: eight fix
   batches launched so, and their edits were told to the session as another hand's six times).
 
-Each file once per session; a restart, or a compaction, starts over (a compaction keeps where the session started).
+Each file once per session; a resume keeps the files, lines, quoted and noted sections and searches already told,
+and where the session started. Startup, clear and other starts begin again; a compaction retells while keeping where
+the session started and outstanding calls. A resume resets process-owned background calls and agents and takes a new
+last snapshot. The commands a hook prints name `jokbo.py` in the root the plugin family's shared resolver finds for
+jokbo for this project on this host, whatever its version (see [What it reads](#what-it-reads) for the resolver's rules).
+If no root is found, it has no `jokbo.py`, or the resolver raises an error, they name the running copy.
 Hook cost on guin-site (73 sections, 500 commits): a prompt ~0.1 s, a search answer 0.1–0.5 s; on 4,868 sections the
 prompt match 0.44 s (a section's match keys are kept in the cache). An older cache is brought up to date without blame — but 1.7.0's, whose sections' last change stopped at the last committed line, is blamed once again. Paths follow the shell's directory; the cache is the project's, at
 its root. All silent in a worker session (`AGENT_WORKER=1`) and outside a git work tree; under hunsu's probe
@@ -243,7 +252,7 @@ of the project, e.g. `["content/"]` for a site's posts.
 
 | path | committed | what |
 |---|---|---|
-| `.jokbo/` | never (it ignores itself) | the cache: the index (`index.json`), where this machine last looked (`seen.json`), per session where it started and what it was told (files, lines, quoted sections, answered searches) |
+| `.jokbo/` | never (it ignores itself) | the cache: the index (`index.json`), where this machine last looked (`seen.json`), per session where it started and what it was told (files, lines, quoted and noted sections, answered searches), retained on resume |
 
 ## Limits
 

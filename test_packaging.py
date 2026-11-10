@@ -87,13 +87,29 @@ def child_env():
     return env
 
 
-def run(argv, cwd, stdin=None):
+def run(argv, cwd, stdin=None, env=None):
     return subprocess.run(argv, cwd=cwd, input=stdin, capture_output=True,
-                          text=True, env=child_env(), timeout=TIMEOUT)
+                          text=True, env=child_env() if env is None else env,
+                          timeout=TIMEOUT)
 
 
-def py(argv, cwd, stdin=None):
-    return run([sys.executable] + list(argv), cwd, stdin)
+def py(argv, cwd, stdin=None, env=None):
+    return run([sys.executable] + list(argv), cwd, stdin, env)
+
+
+def hermetic_env(test, host="claude-code"):
+    """child_env() with the host pinned and every host home an empty temp
+    directory, so no plugin installed or enabled on this machine resolves."""
+    homes = fresh_dir(test)
+    env = child_env()
+    for key in ("CLAUDE_CONFIG_DIR", "AGENT_CODEX_HOME", "CODEX_HOME"):
+        env.pop(key, None)
+    env["AGENT_HOST"] = host
+    for key, name in (("HUNSU_CLAUDE_DIR", "claude-home"),
+                      ("HUNSU_CODEX_DIR", "codex-home"), ("HOME", "home")):
+        env[key] = os.path.join(homes, name)
+        os.makedirs(env[key])
+    return env
 
 
 def fresh_dir(test):
@@ -715,10 +731,13 @@ class C6Workflow(unittest.TestCase):
         self.assertTrue(os.path.isfile(engine), "%s does not exist" % engine)
         f, err = make_fixture(self)
         self.assertIsNone(err, err)
+        # The workflow runs where nothing is installed: the engine and hooks
+        # see empty host homes, so the copy is the jokbo they name.
+        self._env = hermetic_env(self)
         return copy, f
 
     def _cli(self, copy, f, *argv):
-        r = py([os.path.join(copy, "jokbo.py")] + list(argv), f)
+        r = py([os.path.join(copy, "jokbo.py")] + list(argv), f, env=self._env)
         self.assertNotIn(POISON_MSG, r.stdout + r.stderr, argv)
         self.assertEqual(r.returncode, 0, "%s: %s" % (argv, r.stderr))
         return r.stdout
@@ -726,7 +745,8 @@ class C6Workflow(unittest.TestCase):
     def _hook(self, copy, f, script, event, extra):
         payload = {"cwd": f, "session_id": "pkg-1", "hook_event_name": event}
         payload.update(extra)
-        r = py([os.path.join(copy, "hooks", script)], f, json.dumps(payload))
+        r = py([os.path.join(copy, "hooks", script)], f, json.dumps(payload),
+               env=self._env)
         self.assertNotIn(POISON_MSG, r.stdout + r.stderr, script)
         self.assertEqual(r.returncode, 0, "%s: %s" % (script, r.stderr))
         out = r.stdout.strip()
@@ -799,7 +819,7 @@ class C6Workflow(unittest.TestCase):
         v = shared_version(self)
         code = ("import sys; sys.path.insert(0, %r); import jokbo; "
                 "print(jokbo.version())") % copy
-        r = py(["-c", code], f)
+        r = py(["-c", code], f, env=self._env)
         self.assertEqual((r.returncode, r.stdout.strip()), (0, v), r.stderr)
         self._cli_steps(copy, f)
         for script, event, extra in HOOKS:

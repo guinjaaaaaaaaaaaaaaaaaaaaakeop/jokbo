@@ -736,6 +736,31 @@ def shell_files(target, cwd, command, files):
     `test_bots.py`, and the file was taken for another). Writes: redirect targets; operands of mv, cp, rm, touch, tee,
     `git mv/rm`, `sed -i`, `perl -pi` (a directory stands for its files); paths an inline script writes. Reads: operands
     of cat, head, tail, sed, awk, grep, rg, less, nl — files only, never a whole directory."""
+    return shell_file_paths(target, cwd, command, files)
+
+
+def shell_newlines(command):
+    """Separate unquoted shell lines, keeping inline programs intact when their bodies span lines."""
+    quote_char, escaped, out = None, False, []
+    for c in command:
+        if escaped:
+            out.append(c)
+            escaped = False
+            continue
+        if c == "\\" and quote_char != "'":
+            escaped = True
+        elif c in ("'", '"'):
+            if quote_char == c:
+                quote_char = None
+            elif quote_char is None:
+                quote_char = c
+        out.append(" ; " if c == "\n" and quote_char is None else c)
+    return "".join(out)
+
+
+def shell_file_paths(target, cwd, command, files, include_new=False):
+    """Read shell file operands; optionally include new write paths when deciding whether a search is an edit.
+    The pre-tool reading keeps its existing file-only results; a search after creating a file is still an edit."""
     root = os.path.realpath(target)
     fileset = set(files)
     cwd = os.path.realpath(cwd or root)
@@ -751,25 +776,41 @@ def shell_files(target, cwd, command, files):
     def as_files(tok, here, dirs=True):
         if not tok or tok.startswith(("-", "$")) or any(c in tok for c in "*?{"):
             return set()
-        r = rel(tok, here)
+        r = inside(root, here, tok) if include_new else rel(tok, here)
         if r is None:
             return set()
+        if include_new and r != ".":
+            return {r}
         if r in fileset:
             return {r}
         return {f for f in files if f.startswith(r.rstrip("/") + "/")} if dirs and r != "." else set()
 
+    if include_new:
+        import shlex
+
+        def script_body(m):
+            """Keep a script at its shell position so preceding cd commands apply to its writes."""
+            line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
+            if re.search(r"\b(?:python3?|node|ruby|perl)\b", line):
+                return " -c " + shlex.quote(m.group(3))
+            if re.search(r"\b(?:bash|sh|zsh|dash|ksh)\b", line):
+                return "\n" + m.group(3) + "\n"
+            return ""
+
+        command = HEREDOC.sub(script_body, command)
+        command = shell_newlines(command)
     # inline scripts first: their bodies are data to the shell, and what they write is in their own words
-    for m in HEREDOC.finditer(command):
+    for m in HEREDOC.finditer(command) if not include_new else ():
         line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
         if re.search(r"\b(?:python3?|node|ruby|perl)\b", line):
             for p in script_targets(m.group(3)):
                 written |= as_files(p, cwd, dirs=False)
-    for m in re.finditer(r"\b(?:python3?|node)\s+-[ce]\s+(['\"])(.*?)\1", command, re.S):
+    for m in re.finditer(r"\b(?:python3?|node)\s+-[ce]\s+(['\"])(.*?)\1", command, re.S) if not include_new else ():
         for p in script_targets(m.group(2)):
             written |= as_files(p, cwd, dirs=False)
     body = HEREDOC.sub("", command)
     here = cwd
-    for line in body.split("\n"):
+    for line in ([body] if include_new else body.split("\n")):
         words_ = shell_words(line)
         cmds, cur = [], []
         for w in words_:
@@ -803,6 +844,11 @@ def shell_files(target, cwd, command, files):
                     nxt = os.path.normpath(os.path.join(here, os.path.expanduser(w[1])))
                     here = nxt if os.path.isdir(nxt) else here
                 continue
+            if include_new and os.path.basename(w[0]) in ("python", "python3", "node", "ruby", "perl"):
+                for flag in ("-c", "-e"):
+                    if flag in w and w.index(flag) + 1 < len(w):
+                        for p in script_targets(w[w.index(flag) + 1]):
+                            written |= as_files(p, here, dirs=False)
             args = [a for a in w[1:] if not a.startswith("-")]
             if w[0] == "git" and len(w) > 1 and w[1] in ("mv", "rm"):
                 for a in w[2:]:
@@ -1085,7 +1131,15 @@ QUOTE = 220   # a quoted sentence, at most
 NOTE_LINES, NOTE_WIDTH = 3, 200   # a declared `note` read: its first lines, each cut
 
 
-def engine_path():
+def engine_path(target=None):
+    """The engine this project's host resolves, else this copy: a hint must survive a missing or broken resolver."""
+    if target is not None:
+        try:
+            root = pluginroot.resolve(target, "jokbo").get("root")
+            if root and os.path.isfile(os.path.join(root, "jokbo.py")):
+                return os.path.join(root, "jokbo.py").replace(os.sep, "/")
+        except (Exception, SystemExit):
+            pass
     return os.path.join(HERE, "jokbo.py").replace(os.sep, "/")
 
 
@@ -1203,7 +1257,7 @@ def nested_line(target):
         parts.append("%s (%s; %d)" % (n, ", ".join(w for w, _ in where.most_common(3)), len(docs)))
     if not parts:
         return None
-    return "  repositories inside, each its own map (`%s \"%s\" map --target DIR`): %s" % (PY, engine_path(), ", ".join(parts))
+    return "  repositories inside, each its own map (`%s \"%s\" map --target DIR`): %s" % (PY, engine_path(target), ", ".join(parts))
 
 
 def map_report(target):
@@ -1244,7 +1298,7 @@ def map_report(target):
             first = [l.strip() for l in text.strip().split("\n") if l.strip()][:2]
             lines.append("  %s: %s" % (plugin, " · ".join(cut(l, 240) for l in first)))
     ask = ("  ask: `%s \"%s\" find WORDS` — what was decided and where it is said, quoted; `since [REV]` — what changed; "
-           "`file PATH` — all that stands on a file" % (PY, engine_path()))
+           "`file PATH` — all that stands on a file" % (PY, engine_path(target)))
     while sum(len(l) + 1 for l in lines) + len(ask) > MAP_CHARS:
         heads = [i for i, l in enumerate(lines) if l.startswith("    ")] or [i for i, l in enumerate(lines) if l in spare]
         if not heads:
@@ -1431,7 +1485,7 @@ def prompt_report(target, text, told=()):
     if not out:
         return [], []
     return (["jokbo — the project already says (ranked by shared words, confirmed by nobody; `%s \"%s\" find WORDS` for more):"
-             % (PY, engine_path())] + out), ids
+             % (PY, engine_path(target))] + out), ids
 
 
 # ---------------------------------------------------------------- what a shell command searches for
@@ -1485,7 +1539,13 @@ def history_targets(target, command, files, cwd=None):
     pattern with none (`at-31`) is left to grep."""
     out = []
     here = cwd or target
-    for argv, piped in commands_of(command or ""):
+    def heredoc_body(m):
+        """Only a shell consumes its heredoc as commands; a document or message is data."""
+        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
+        return "\n" + m.group(3) + "\n" if re.search(r"\b(?:bash|sh|zsh|dash|ksh)\b", line) else ""
+
+    command = HEREDOC.sub(heredoc_body, command or "")
+    for argv, piped in commands_of(command):
         if argv[0] == "cd":
             here = os.path.normpath(os.path.join(here, os.path.expanduser(argv[1]))) if len(argv) > 1 else target
             continue
@@ -1562,9 +1622,19 @@ def inside(target, here, arg):
 
 
 def pattern_terms(pat):
-    """A search pattern's words, as `find` takes them: regex syntax is not a word."""
-    terms = [t for t in words(re.sub(r"\\[|bBwsdW]|[\^$.*+?()\[\]{}|\\]", " ", pat or "")) if t]
-    return " ".join(dict.fromkeys(terms))
+    """Keep searched words whole and in their written case; regex classes, escapes and group syntax are not words.
+    A pattern made solely of syntax stays with grep, and printed terms contain no shell operators. Read escapes and
+    classes in one pass: escaped literal brackets enclose searched words, not a bracket expression."""
+    pat = re.sub(r"\\(?:x(?:\{[^}]*\}|[0-9a-fA-F]{2})|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[pP]\{[^}]*\}|[0-9]+|[A-Za-z])|\\."
+                 r"|\[\^?\]?(?:\[:.*?:\]|\[=.*?=\]|\[\..*?\.\]|\\.|[^\]\\])*\]", " ", pat or "")
+    pat = re.sub(r"\(\?(?:P<[^>]*>|<[^=!][^>]*>|P=[^)]*\)|[aiLmsux-]+(?::|\))|[:=!]|<[=!])", " ", pat)
+    pat = re.sub(r"\{[0-9]+(?:,[0-9]*)?\}", " ", pat)
+    out, seen = [], set()
+    for term in re.findall(r"\w+(?:-\w+)*", pat):
+        if words(term) and term.casefold() not in seen:
+            out.append(term)
+            seen.add(term.casefold())
+    return " ".join(out)
 
 
 def history_report(target, kind, what):
@@ -1576,12 +1646,12 @@ def history_report(target, kind, what):
         q = words(what) + (words(read_text(target, what)) if is_text(target, what) else [])
         naming = sorted((x for x in idx["sections"] if what in x.get("names", ())), key=lambda x: bool(retired_of(idx, x["file"])))
         secs = naming[:2] or rank_sections(idx, q, about=what, top=2)
-        head = "jokbo — what the documents say of %s (`%s \"%s\" file %s` for all):" % (what, PY, engine_path(), what)
+        head = "jokbo — what the documents say of %s (`%s \"%s\" file %s` for all):" % (what, PY, engine_path(target), what)
         qq = q   # the sentence that shares the file's own words: its name alone is often not in the sentence that explains it
     else:
         q = qq = query_terms(what)
         secs = rank_sections(idx, q, top=2)
-        head = "jokbo — where the project speaks of: %s (`%s \"%s\" find %s` for all):" % (what, PY, engine_path(), what)
+        head = "jokbo — where the project speaks of: %s (`%s \"%s\" find %s` for all):" % (what, PY, engine_path(target), what)
     lines = []
     for x in secs:
         said = quote(target, idx, x, qq, least=2 if kind == "path" else 1)
@@ -1616,11 +1686,14 @@ def session_update(fn):
 @session_update
 def searched(target, session_id, command=None, cwd=None, pattern=None):
     """The history/document searches in a command (or the host's own Grep: `pattern`) that this session has not had
-    answered yet: told once per target. A command that cannot be a search costs nothing (no index is loaded)."""
+    answered yet: told once per target. An edit, including a new file, answers and records no search: checking an edit
+    is not a question. A command that cannot be a search costs nothing (no index is loaded)."""
     if pattern is not None:
         terms = pattern_terms(pattern)
         found = [("terms", terms)] if terms else []
     elif command and SEARCHING.search(command):
+        if shell_file_paths(target, cwd, command, (), include_new=True)[0]:
+            return []
         found = history_targets(target, command, set(index(target)["files"]), cwd)
     else:
         found = []
@@ -1774,7 +1847,7 @@ def tell(target, rels, session_id, why):
             continue
         naming = [x["id"] for x in index(target)["sections"] if rel in x.get("names", ())]
         if set(naming) - seen:
-            how = "jokbo `file %s`" % rel if "pointer" in told_lines else "`%s \"%s\" file %s`" % (PY, engine_path(), rel)
+            how = "jokbo `file %s`" % rel if "pointer" in told_lines else "`%s \"%s\" file %s`" % (PY, engine_path(target), rel)
             told_lines.add("pointer")   # the command is spelled out once; the map's ask line has it too
             body.append("  more: %s — %d document section(s) name it" % (how, len(naming)))
         lines += [note[0]] + body

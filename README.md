@@ -72,6 +72,13 @@ name — and a `file`, `since` or `decision` read says, in a line of its own, wh
 hunsu.json's pinned version. A read whose plugin is installed only for the other host, or only from a marketplace other
 than the declared one, is not run and says why; 2.1.0 ran whatever install of that name Claude Code's records held.
 
+2.3.0 is minor: the hooks say less that was never asked. A shell command that writes inside the project answers no
+search (the grep that checks an edit is not a question); a search's terms are the words it searched, as written — regex
+syntax, heredoc bodies and inline programs give none. A resumed session keeps what it was told and where it started,
+since the restored conversation still holds them (a compaction still tells again). The commands the hooks print name
+`jokbo.py` in the root the plugin family's shared resolver finds for jokbo for this project on this host, else the
+running copy; 2.2.0 always named the running copy, which can be an older one than the project now pins.
+
 ### Release and adoption
 
 Documentation and shared instruction edits also need a patch bump when interfaces stay unchanged.
